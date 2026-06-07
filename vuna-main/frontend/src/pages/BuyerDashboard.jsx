@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import { Search, MapPin, Calendar, MessageSquare, ShoppingBag, X, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
+import { Search, MapPin, Calendar, MessageSquare, ShoppingBag, X, CheckCircle, AlertTriangle, Clock, Video } from 'lucide-react';
 import OrderConfirmationPopup from '../components/OrderConfirmationPopup';
 
 export default function BuyerDashboard() {
@@ -277,6 +277,21 @@ export default function BuyerDashboard() {
                       <MessageSquare size={14} />
                       <span>Chat</span>
                     </button>
+                    <button
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('initiate-call', {
+                          detail: {
+                            userId: product.farmer,
+                            userName: product.farmer_name,
+                            userAvatar: '🌾'
+                          }
+                        }));
+                      }}
+                      className="py-2.5 px-3 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold rounded-xl border border-green-200 flex items-center justify-center transition duration-200"
+                      title={`Video call ${product.farmer_name}`}
+                    >
+                      <Video size={14} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -327,13 +342,29 @@ export default function BuyerDashboard() {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       onClick={() => navigate(`/chat/${order.farmer}`)}
                       className="w-full sm:w-auto py-2 px-4 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-semibold rounded-xl border border-gray-200 flex items-center justify-center space-x-1"
                     >
                       <MessageSquare size={14} />
                       <span>Chat Farmer</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent('initiate-call', {
+                          detail: {
+                            userId: order.farmer,
+                            userName: order.farmer_name,
+                            userAvatar: '🌾'
+                          }
+                        }));
+                      }}
+                      className="py-2 px-3 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded-xl border border-green-200 flex items-center justify-center space-x-1 transition"
+                      title={`Call ${order.farmer_name}`}
+                    >
+                      <Video size={14} />
+                      <span className="hidden sm:inline">Call</span>
                     </button>
                     {order.status === 'delivered' && (
                       <button

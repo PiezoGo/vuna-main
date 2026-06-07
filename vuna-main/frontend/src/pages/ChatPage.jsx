@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, Send, Phone, Video } from 'lucide-react';
 
 export default function ChatPage() {
   const { userId } = useParams();
@@ -122,6 +122,26 @@ export default function ChatPage() {
             </span>
           </div>
         </div>
+
+        {partner && (
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('initiate-call', {
+                  detail: {
+                    userId: partner.uid,
+                    userName: partner.full_name,
+                    userAvatar: partner.avatar || '👤'
+                  }
+                }));
+              }}
+              className="p-2 text-gray-500 hover:text-primary hover:bg-gray-50 rounded-lg transition"
+              title="Start Video Call"
+            >
+              <Video size={18} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Message Area */}

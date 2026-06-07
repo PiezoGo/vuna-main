@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Peer } from 'peerjs';
 import api from '../utils/api';
 import { helpContent } from '../utils/helpContent';
 import {
@@ -10,7 +11,14 @@ import {
   Compass,
   Sprout,
   ShoppingBag,
-  LogOut
+  LogOut,
+  Phone,
+  PhoneCall,
+  PhoneOff,
+  Video,
+  VideoOff,
+  Mic,
+  MicOff
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -39,6 +47,19 @@ export default function Navbar() {
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
+
+  // calling states
+  const [peer, setPeer] = useState(null);
+  const [callState, setCallState] = useState('idle'); // idle, ringing, calling, active
+  const [activeCall, setActiveCall] = useState(null);
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [callUser, setCallUser] = useState({ uid: '', name: '', avatar: '👤' });
+  const [audioMuted, setAudioMuted] = useState(false);
+  const [videoMuted, setVideoMuted] = useState(false);
+
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
 
   // Update user state when localStorage changes or token is set
   useEffect(() => {
@@ -74,9 +95,135 @@ export default function Navbar() {
     }
   }, [location.pathname]);
 
+  // PeerJS Connection and Signaling Initialization
+  useEffect(() => {
+    if (!user) {
+      if (peer) {
+        peer.destroy();
+        setPeer(null);
+      }
+      return;
+    }
+
+    const newPeer = new Peer(user.uid.replace(/-/g, ''), {
+      host: 'peerjs.com',
+      secure: true,
+      port: 443
+    });
+
+    newPeer.on('open', (id) => {
+      console.log('PeerJS initialized for user UID:', id);
+    });
+
+    newPeer.on('error', (err) => {
+      console.error('PeerJS service error:', err);
+    });
+
+    newPeer.on('call', (incomingCall) => {
+      console.log('Receiving call from:', incomingCall.peer);
+      
+      // Auto-decline if we're busy
+      if (callState !== 'idle') {
+        incomingCall.close();
+        return;
+      }
+
+      const callerName = incomingCall.metadata?.callerName || 'Farmer / Buyer';
+      const callerAvatar = incomingCall.metadata?.callerAvatar || '👤';
+
+      setCallUser({ uid: incomingCall.peer, name: callerName, avatar: callerAvatar });
+      setCallState('ringing');
+      setActiveCall(incomingCall);
+    });
+
+    setPeer(newPeer);
+
+    return () => {
+      newPeer.destroy();
+    };
+  }, [user ? user.uid : null]);
+
+  // Global listener for call initiation requests from other pages
+  useEffect(() => {
+    const handleInitiateCall = async (event) => {
+      const { userId, userName, userAvatar } = event.detail;
+      
+      if (!peer) {
+        alert('Calling service not ready yet. Please try again.');
+        return;
+      }
+      if (callState !== 'idle') {
+        alert('You are already in a call.');
+        return;
+      }
+
+      setCallUser({ uid: userId, name: userName || 'Farmer / Buyer', avatar: userAvatar || '👤' });
+      setCallState('calling');
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setLocalStream(stream);
+        setAudioMuted(false);
+        setVideoMuted(false);
+
+        const call = peer.call(userId.replace(/-/g, ''), stream, {
+          metadata: {
+            callerName: user.full_name,
+            callerAvatar: user.avatar || '👤'
+          }
+        });
+
+        setActiveCall(call);
+
+        call.on('stream', (rStream) => {
+          setRemoteStream(rStream);
+          setCallState('active');
+        });
+
+        call.on('close', () => {
+          endCallCleanup();
+        });
+
+        call.on('error', (err) => {
+          console.error('Call connection error:', err);
+          alert('Call failed to connect: ' + err.message);
+          endCallCleanup();
+        });
+
+      } catch (err) {
+        console.error('Permission denied or devices missing:', err);
+        alert('Could not access your camera/microphone. Please ensure permissions are granted.');
+        endCallCleanup();
+      }
+    };
+
+    window.addEventListener('initiate-call', handleInitiateCall);
+    return () => {
+      window.removeEventListener('initiate-call', handleInitiateCall);
+    };
+  }, [peer, callState, user]);
+
+  // Handle local video element binding
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream, callState]);
+
+  // Handle remote video element binding
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream, callState]);
+
   if (!token || !user) return null;
 
   const handleLogout = () => {
+    if (peer) {
+      peer.destroy();
+      setPeer(null);
+    }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);
@@ -93,7 +240,6 @@ export default function Navbar() {
     setProfileLoading(true);
 
     try {
-      // Send PUT request to profile update endpoint
       const response = await api.put('profile/', {
         full_name: profileForm.full_name,
         email: profileForm.email,
@@ -104,7 +250,6 @@ export default function Navbar() {
         avatar: profileForm.avatar
       });
 
-      // Save updated user back to localStorage
       const updatedUser = {
         ...user,
         ...response.data
@@ -122,6 +267,82 @@ export default function Navbar() {
       setProfileError(err.response?.data ? Object.entries(err.response.data).map(([key, val]) => `${key}: ${val}`).join(', ') : 'Failed to update profile.');
     } finally {
       setProfileLoading(false);
+    }
+  };
+
+  // WebRTC Call actions
+  const acceptCall = async () => {
+    if (!activeCall) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      setLocalStream(stream);
+      setAudioMuted(false);
+      setVideoMuted(false);
+
+      activeCall.answer(stream);
+      setCallState('active');
+
+      activeCall.on('stream', (rStream) => {
+        setRemoteStream(rStream);
+      });
+
+      activeCall.on('close', () => {
+        endCallCleanup();
+      });
+
+      activeCall.on('error', (err) => {
+        console.error('Call connection error:', err);
+        endCallCleanup();
+      });
+
+    } catch (err) {
+      console.error('Could not accept call:', err);
+      alert('Could not access camera/microphone. Call declined.');
+      declineCall();
+    }
+  };
+
+  const declineCall = () => {
+    if (activeCall) {
+      activeCall.close();
+      setActiveCall(null);
+    }
+    setCallState('idle');
+  };
+
+  const endCallCleanup = () => {
+    if (activeCall) {
+      activeCall.close();
+      setActiveCall(null);
+    }
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      setLocalStream(null);
+    }
+    setRemoteStream(null);
+    setCallState('idle');
+    setAudioMuted(false);
+    setVideoMuted(false);
+  };
+
+  const toggleAudio = () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setAudioMuted(!audioTrack.enabled);
+      }
+    }
+  };
+
+  const toggleVideo = () => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setVideoMuted(!videoTrack.enabled);
+      }
     }
   };
 
@@ -215,6 +436,131 @@ export default function Navbar() {
       >
         <HelpCircle size={24} />
       </button>
+
+      {/* INCOMING CALL TOAST */}
+      {callState === 'ringing' && (
+        <div className="fixed top-20 right-4 md:right-10 z-50 bg-white rounded-2xl shadow-2xl border border-primary/10 p-5 w-80 animate-scaleIn flex flex-col gap-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-2xl font-bold">
+              {callUser.avatar}
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-900 text-sm leading-tight">{callUser.name}</h4>
+              <p className="text-xs text-primary font-semibold flex items-center space-x-1.5 mt-1 animate-pulse">
+                <PhoneCall size={13} className="animate-bounce" />
+                <span>Incoming Call...</span>
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={declineCall}
+              className="flex-1 py-2 px-3 border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold rounded-xl transition"
+            >
+              Decline
+            </button>
+            <button
+              onClick={acceptCall}
+              className="flex-1 py-2 px-3 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-xl shadow-lg shadow-green-600/15 transition"
+            >
+              Accept
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* CALL OVERLAY MODAL */}
+      {(callState === 'calling' || callState === 'active') && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4">
+          <div className="relative w-full max-w-4xl h-[80vh] bg-gray-900 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between">
+            {/* Video Feed Area */}
+            <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
+              {callState === 'calling' ? (
+                <div className="text-center text-white space-y-4">
+                  <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center text-4xl font-bold mx-auto border border-primary/30 animate-pulse">
+                    {callUser.avatar}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-xl">{callUser.name}</h3>
+                    <p className="text-xs text-gray-400 mt-1.5 animate-pulse">Calling...</p>
+                  </div>
+                </div>
+              ) : (
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              )}
+
+              {/* Local Stream Thumbnail (PIP) */}
+              {localStream && (
+                <div className="absolute top-4 right-4 w-32 h-44 sm:w-40 sm:h-52 bg-gray-800 rounded-2xl overflow-hidden border border-white/20 shadow-2xl z-10">
+                  {videoMuted ? (
+                    <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 bg-gray-900 select-none">
+                      Camera Off
+                    </div>
+                  ) : (
+                    <video
+                      ref={localVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                </div>
+              )}
+              
+              {/* Partner Name Banner (Active Mode) */}
+              {callState === 'active' && (
+                <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs font-semibold select-none flex items-center gap-1.5 border border-white/10">
+                  <span>{callUser.avatar}</span>
+                  <span>{callUser.name}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Call Control Center */}
+            <div className="bg-gray-950 p-6 flex items-center justify-center gap-4 shrink-0 border-t border-white/5">
+              <button
+                onClick={toggleAudio}
+                disabled={callState !== 'active'}
+                className={`p-3.5 rounded-full transition duration-200 border ${
+                  audioMuted
+                    ? 'bg-red-500/15 border-red-500/30 text-red-500 hover:bg-red-500/25'
+                    : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
+                } disabled:opacity-50`}
+                title={audioMuted ? "Unmute Microphone" : "Mute Microphone"}
+              >
+                {audioMuted ? <MicOff size={20} /> : <Mic size={20} />}
+              </button>
+
+              <button
+                onClick={endCallCleanup}
+                className="p-4 bg-red-600 hover:bg-red-700 text-white rounded-full transition duration-200 shadow-lg shadow-red-600/30 hover:scale-105 active:scale-95"
+                title="End Call"
+              >
+                <PhoneOff size={24} />
+              </button>
+
+              <button
+                onClick={toggleVideo}
+                disabled={callState !== 'active'}
+                className={`p-3.5 rounded-full transition duration-200 border ${
+                  videoMuted
+                    ? 'bg-red-500/15 border-red-500/30 text-red-500 hover:bg-red-500/25'
+                    : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
+                } disabled:opacity-50`}
+                title={videoMuted ? "Turn Camera On" : "Turn Camera Off"}
+              >
+                {videoMuted ? <VideoOff size={20} /> : <Video size={20} />}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* HELP MODAL OVERLAY */}
       {showHelp && (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import { Plus, Trash2, Edit3, X, HelpCircle, Check, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Edit3, X, HelpCircle, Check, AlertCircle, Video } from 'lucide-react';
 
 export default function FarmerDashboard() {
   const navigate = useNavigate();
@@ -370,7 +370,23 @@ export default function FarmerDashboard() {
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => {
+                          window.dispatchEvent(new CustomEvent('initiate-call', {
+                            detail: {
+                              userId: order.buyer,
+                              userName: order.buyer_name,
+                              userAvatar: '👤'
+                            }
+                          }));
+                        }}
+                        className="py-2 px-3 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded-xl border border-green-200 flex items-center justify-center space-x-1 transition"
+                        title={`Call ${order.buyer_name}`}
+                      >
+                        <Video size={14} />
+                        <span className="hidden md:inline">Call Buyer</span>
+                      </button>
                       {order.status === 'pending' && (
                         <button
                           onClick={() => handleMarkDelivered(order.id)}
