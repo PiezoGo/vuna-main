@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import {
   Search, MapPin, Calendar, MessageSquare, ShoppingBag, X,
-  CheckCircle, AlertTriangle, Clock, Video, Package, History,
-  Truck, Star, Sparkles, Filter, XCircle, TrendingUp,
+  CheckCircle, AlertTriangle, Clock, Video, Package,
+  Star, Sparkles, Filter, XCircle, TrendingUp,
   ChevronRight, RotateCcw
 } from 'lucide-react';
 import OrderConfirmationPopup from '../components/OrderConfirmationPopup';
@@ -13,25 +13,7 @@ import {
   getProductStock, isOutOfStock, formatStatus, statusBadgeClass,
   isDisputeWindowOpen, getDisputeWindowRemaining, isUserOnline
 } from '../utils/marketplaceStore';
-
-/* ─────────────────────────────────────────────────────────────
-   localStorage helpers — purely front-end order history store
-   ───────────────────────────────────────────────────────────── */
-const LS_KEY = 'vuna_local_orders';
-
-function getLocalOrders() {
-  try {
-    return JSON.parse(localStorage.getItem(LS_KEY)) || [];
-  } catch {
-    return [];
-  }
-}
-
-function saveLocalOrder(order) {
-  const existing = getLocalOrders();
-  existing.unshift(order); // newest first
-  localStorage.setItem(LS_KEY, JSON.stringify(existing));
-}
+import { fetchBuyerOrders, fetchAllProducts, placeOrder, patchOrderStatus } from '../utils/dataBridge';
 
 /* ─────────────────────────────────────────────────────────────
    Category definitions — farm-marketplace oriented
@@ -65,15 +47,11 @@ function detectCategory(product) {
 
 export default function BuyerDashboard() {
   const navigate = useNavigate();
-  // Tab options: marketplace | orders | local-history | chats
   const [activeTab, setActiveTab] = useState('marketplace');
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  // Local order history (localStorage)
-  const [localOrders, setLocalOrders] = useState(getLocalOrders());
 
   // ── TikTok-style Search & Category State ────────────────────
   const [searchQuery, setSearchQuery] = useState('');
@@ -187,8 +165,7 @@ export default function BuyerDashboard() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const response = await api.get('products/');
-      setProducts(response.data);
+      setProducts(await fetchAllProducts());
     } catch (err) {
       console.error(err);
     } finally {
@@ -198,10 +175,12 @@ export default function BuyerDashboard() {
 
   const fetchOrders = async () => {
     try {
-      const response = await api.get('orders/');
-      setOrders(response.data);
-      const firstDelivered = response.data.find(o => o.status === 'delivered');
-      if (firstDelivered) setDeliveredOrder(firstDelivered);
+      const data = await fetchBuyerOrders(currentUser.uid);
+      setOrders(data);
+      if (!deliveredOrder) {
+        const firstDelivered = data.find((o) => o.status === 'delivered');
+        if (firstDelivered) setDeliveredOrder(firstDelivered);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -209,11 +188,10 @@ export default function BuyerDashboard() {
 
   const checkDeliveredOrders = async () => {
     try {
-      const response = await api.get('orders/');
-      const updatedOrders = response.data;
+      const updatedOrders = await fetchBuyerOrders(currentUser.uid);
       setOrders(updatedOrders);
       if (!deliveredOrder) {
-        const firstDelivered = updatedOrders.find(o => o.status === 'delivered');
+        const firstDelivered = updatedOrders.find((o) => o.status === 'delivered');
         if (firstDelivered) setDeliveredOrder(firstDelivered);
       }
     } catch (err) {
@@ -271,49 +249,22 @@ export default function BuyerDashboard() {
     const total = (parseFloat(selectedProduct.price_per_unit) * qty).toFixed(2);
 
     try {
-      // 1. Post to backend API (real order)
-      await api.post('orders/', {
-        product: selectedProduct.id,
+      await placeOrder({
+        product: selectedProduct,
         quantity: qty,
+        buyer: { ...currentUser, full_name: orderForm.buyerName || currentUser.full_name },
       });
       fetchOrders();
+      setSuccessToast({
+        title: `Order placed for ${selectedProduct.title}!`,
+        body: `Quantity: ${qty} ${selectedProduct.unit} — Total: KES ${total}`,
+      });
+      setSelectedProduct(null);
     } catch (err) {
-      console.error('Backend order error (saving locally anyway):', err);
-      // Non-blocking — if API is down we still save locally
-      if (err.response?.data?.error) {
-        setBuyError(err.response.data.error);
-        setBuyLoading(false);
-        return;
-      }
+      setBuyError(err.message || 'Failed to place order.');
+    } finally {
+      setBuyLoading(false);
     }
-
-    // 2. Always save a snapshot to localStorage for order history demo
-    const localRecord = {
-      id: `LOCAL-${Date.now()}`,
-      productName: selectedProduct.title,
-      productUnit: selectedProduct.unit,
-      pricePerUnit: selectedProduct.price_per_unit,
-      quantity: qty,
-      total,
-      buyerName: orderForm.buyerName,
-      shippingAddress: orderForm.shippingAddress,
-      notes: orderForm.notes,
-      farmerName: selectedProduct.farmer_name,
-      farmerCity: selectedProduct.farmer_city,
-      placedAt: new Date().toISOString(),
-      status: 'pending'
-    };
-    saveLocalOrder(localRecord);
-    setLocalOrders(getLocalOrders());
-
-    // 3. Show success toast
-    setSuccessToast({
-      title: `Order placed for ${selectedProduct.title}!`,
-      body: `Quantity: ${qty} ${selectedProduct.unit} — Total: KES ${total}`
-    });
-
-    setSelectedProduct(null);
-    setBuyLoading(false);
   };
 
   const handleResolveOrder = () => {
@@ -324,10 +275,10 @@ export default function BuyerDashboard() {
 
   const updateOrderStatus = async (orderId, status) => {
     try {
-      await api.patch(`orders/${orderId}/`, { status });
+      await patchOrderStatus(orderId, status, currentUser);
       fetchOrders();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to update order');
+      alert(err.message || 'Failed to update order');
     }
   };
 
@@ -353,7 +304,6 @@ export default function BuyerDashboard() {
   const TAB_LABELS = {
     marketplace: 'Browse',
     orders: `My Orders (${orders.length})`,
-    'local-history': `Order History (${localOrders.length})`,
     chats: `Inbox (${chats.length})`
   };
 
@@ -790,67 +740,6 @@ export default function BuyerDashboard() {
                 </div>
               );
               })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── LOCAL ORDER HISTORY TAB (localStorage) ──── */}
-      {activeTab === 'local-history' && (
-        <div className="space-y-4">
-          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-xs text-blue-700 font-medium flex items-start gap-2">
-            <History size={14} className="shrink-0 mt-0.5" />
-            <span>
-              <span className="font-bold">Order History (Local):</span> These are orders captured in your browser's local storage for demo purposes. They persist across sessions on this device.
-            </span>
-          </div>
-
-          {localOrders.length === 0 ? (
-            <div className="bg-white border border-primary/10 rounded-2xl p-10 text-center text-sm text-gray-500">
-              <History size={36} className="mx-auto text-gray-300 mb-3" />
-              No order history yet. Place an order from the Browse tab!
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {localOrders.map((order) => (
-                <div key={order.id} className="bg-white border border-primary/10 rounded-2xl p-4 shadow-sm">
-                  <div className="flex justify-between items-start flex-wrap gap-2">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-black text-gray-900 text-base">{order.productName}</span>
-                        <span className="text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 px-2 py-0.5 rounded-full font-bold uppercase flex items-center gap-1">
-                          <Clock size={9} />
-                          {order.status}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Farmer: <span className="font-medium text-gray-700">{order.farmerName}</span>
-                        {order.farmerCity && <span> · {order.farmerCity}</span>}
-                      </p>
-                      <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-600">
-                        <span className="flex items-center gap-1">
-                          <Package size={11} className="text-primary" />
-                          {order.quantity} {order.productUnit} × KES {order.pricePerUnit}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Truck size={11} className="text-blue-500" />
-                          {order.shippingAddress || 'No address'}
-                        </span>
-                      </div>
-                      {order.notes && (
-                        <p className="text-xs text-gray-400 italic mt-1">"{order.notes}"</p>
-                      )}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="text-xl font-black text-primary">KES {order.total}</span>
-                      <p className="text-[10px] text-gray-400 mt-0.5">
-                        {new Date(order.placedAt).toLocaleDateString()} at {new Date(order.placedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                      <p className="text-[10px] text-gray-400">{order.id}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
           )}
         </div>

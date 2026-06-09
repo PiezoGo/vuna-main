@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import { saveLocalMessage } from '../utils/localChat';
+import { getLocalMessages, saveLocalMessage } from '../utils/localChat';
+import { getLocalUser } from '../utils/localDataService';
 import { ArrowLeft, Send, Phone, Video } from 'lucide-react';
 
 export default function ChatPage() {
@@ -37,41 +38,52 @@ export default function ChatPage() {
   };
 
   const fetchPartnerDetails = async () => {
+    const localUser = getLocalUser(userId);
     try {
-      // Find the partner in messages/chats/ or fetch user details
       const response = await api.get('messages/chats/');
-      const activeChat = response.data.find(c => c.partner.uid === userId);
+      const activeChat = response.data.find((c) => c.partner.uid === userId);
       if (activeChat) {
         setPartner(activeChat.partner);
+      } else if (localUser) {
+        setPartner({ uid: userId, full_name: localUser.full_name, role: localUser.role });
       } else {
-        // Fallback: search user list or query order details to set placeholder name
         setPartner({ uid: userId, full_name: 'Farmer / Buyer', role: 'user' });
       }
     } catch (err) {
       console.error(err);
-      setPartner({ uid: userId, full_name: 'Farmer / Buyer', role: 'user' });
+      setPartner(
+        localUser
+          ? { uid: userId, full_name: localUser.full_name, role: localUser.role }
+          : { uid: userId, full_name: 'Farmer / Buyer', role: 'user' }
+      );
     }
   };
 
   const fetchMessages = async () => {
     try {
       const response = await api.get('messages/', {
-        params: { receiver_id: userId }
+        params: { receiver_id: userId },
       });
-      setMessages(response.data);
-      
-      // Update partner details if we received messages containing names
+      const local = getLocalMessages(currentUser.uid, userId);
+      const merged = [...response.data];
+      local.forEach((msg) => {
+        if (!merged.some((m) => m.id === msg.id)) merged.push(msg);
+      });
+      merged.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      setMessages(merged);
+
       if (response.data.length > 0 && partner?.full_name === 'Farmer / Buyer') {
         const firstMsg = response.data[0];
         const isSender = firstMsg.sender === currentUser.uid;
         setPartner({
           uid: userId,
           full_name: isSender ? firstMsg.receiver_name : firstMsg.sender_name,
-          role: isSender ? 'user' : 'farmer' // best effort
+          role: isSender ? 'user' : 'farmer',
         });
       }
     } catch (err) {
       console.error(err);
+      setMessages(getLocalMessages(currentUser.uid, userId));
     }
   };
 
@@ -86,14 +98,14 @@ export default function ChatPage() {
     try {
       const response = await api.post('messages/', {
         receiver_id: userId,
-        message: textToSend
+        message: textToSend,
       });
       saveLocalMessage(currentUser.uid, userId, textToSend);
       setMessages([...messages, response.data]);
     } catch (err) {
       console.error(err);
-      alert('Failed to send message.');
-      setNewMessage(textToSend); // restore unsent message
+      const entry = saveLocalMessage(currentUser.uid, userId, textToSend);
+      setMessages([...messages, entry]);
     } finally {
       setSendLoading(false);
     }

@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
-import { Plus, Trash2, Edit3, X, HelpCircle, Check, AlertCircle, Video, MessageSquare, Truck, Eye, ShoppingBag } from 'lucide-react';
+import { Plus, Trash2, Edit3, X, HelpCircle, Check, Video, MessageSquare, Truck, Eye, ShoppingBag } from 'lucide-react';
 import UserAvatar from '../components/UserAvatar';
 import LocalChatModal from '../components/LocalChatModal';
 import { getProductStock, isOutOfStock, formatStatus, statusBadgeClass, isUserOnline } from '../utils/marketplaceStore';
+import {
+  fetchSellerOrders, fetchMyProducts, fetchAllProducts, patchOrderStatus, saveProduct,
+} from '../utils/dataBridge';
 
 export default function FarmerDashboard() {
   const navigate = useNavigate();
@@ -46,9 +49,9 @@ export default function FarmerDashboard() {
   const [calcResult, setCalcResult] = useState(null);
 
   useEffect(() => {
-    fetchProducts();
-    fetchAllProducts();
-    fetchOrders();
+    loadProducts();
+    loadAllProducts();
+    loadOrders();
     fetchChats();
   }, []);
 
@@ -68,28 +71,25 @@ export default function FarmerDashboard() {
     }
   };
 
-  const fetchProducts = async () => {
+  const loadProducts = async () => {
     try {
-      const response = await api.get('products/?my_listings=true');
-      setProducts(response.data);
+      setProducts(await fetchMyProducts());
     } catch (err) {
       console.error('Failed to fetch products', err);
     }
   };
 
-  const fetchAllProducts = async () => {
+  const loadAllProducts = async () => {
     try {
-      const response = await api.get('products/');
-      setAllProducts(response.data);
+      setAllProducts(await fetchAllProducts());
     } catch (err) {
       console.error('Failed to fetch all products', err);
     }
   };
 
-  const fetchOrders = async () => {
+  const loadOrders = async () => {
     try {
-      const response = await api.get('orders/');
-      setOrders(response.data);
+      setOrders(await fetchSellerOrders(currentUser.uid));
     } catch (err) {
       console.error('Failed to fetch orders', err);
     }
@@ -150,37 +150,12 @@ export default function FarmerDashboard() {
       return;
     }
 
-    const data = new FormData();
-    data.append('title', formData.title);
-    data.append('commodity', formData.commodity);
-    data.append('unit', formData.unit);
-    data.append('price_per_unit', formData.price_per_unit);
-    data.append('quantity', formData.quantity);
-    data.append('delivery_time_varies', formData.delivery_time_varies);
-    if (!formData.delivery_time_varies) {
-      data.append('delivery_time_manual', formData.delivery_time_manual);
-    }
-
-    imageFiles.forEach((file, idx) => {
-      if (file) {
-        data.append(`image${idx + 1}`, file);
-      }
-    });
-
     try {
-      if (editingProduct) {
-        await api.patch(`products/${editingProduct.id}/`, data, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-      } else {
-        await api.post('products/', data, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-      }
+      await saveProduct(formData, imageFiles, editingProduct);
       resetForm();
       setShowCreateModal(false);
-      fetchProducts();
-      fetchAllProducts();
+      loadProducts();
+      loadAllProducts();
     } catch (err) {
       console.error(err);
       setFormError(err.response?.data ? JSON.stringify(err.response.data) : 'Failed to save listing.');
@@ -193,7 +168,7 @@ export default function FarmerDashboard() {
     if (!window.confirm('Are you sure you want to delete this listing?')) return;
     try {
       await api.delete(`products/${id}/`);
-      fetchProducts();
+      loadProducts();
     } catch (err) {
       console.error(err);
       alert('Failed to delete product.');
@@ -202,26 +177,26 @@ export default function FarmerDashboard() {
 
   const handleMakeDelivery = async (order) => {
     try {
-      await api.patch(`orders/${order.id}/`, { status: 'delivery_in_progress' });
-      const updated = await api.get('products/?my_listings=true');
-      setProducts(updated.data);
-      fetchAllProducts();
-      const product = updated.data.find((p) => p.id === order.product);
+      await patchOrderStatus(order.id, 'delivery_in_progress', currentUser);
+      const updated = await fetchMyProducts();
+      setProducts(updated);
+      loadAllProducts();
+      const product = updated.find((p) => p.id === order.product);
       if (product && getProductStock(product) <= 0) {
         setStockToast(`Product "${order.product_title}" is now out of stock`);
       }
-      fetchOrders();
+      loadOrders();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to start delivery');
+      alert(err.message || 'Failed to start delivery');
     }
   };
 
   const handleMarkDelivered = async (orderId) => {
     try {
-      await api.patch(`orders/${orderId}/`, { status: 'delivered' });
-      fetchOrders();
+      await patchOrderStatus(orderId, 'delivered', currentUser);
+      loadOrders();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to update order status');
+      alert(err.message || 'Failed to update order status');
     }
   };
 

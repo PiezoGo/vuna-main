@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../utils/api';
 import PasswordField from '../components/PasswordField';
+import { syncAuthUser } from '../utils/dataBridge';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -50,6 +51,7 @@ export default function Signup() {
       const response = await api.post('register/', payload);
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
+      syncAuthUser(response.data.user);
 
       // Redirect based on role
       if (response.data.user.role === 'farmer') {

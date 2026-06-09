@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Peer } from 'peerjs';
-import api from '../utils/api';
 import { helpContent } from '../utils/helpContent';
 import UserAvatar from './UserAvatar';
 import { markUserOnline, setProfilePicture, getProfilePicture, isUserOnline } from '../utils/marketplaceStore';
+import { syncProfile } from '../utils/dataBridge';
 import {
   HelpCircle,
   User,
@@ -255,20 +255,16 @@ export default function Navbar() {
     setProfileLoading(true);
 
     try {
-      const response = await api.put('profile/', {
+      const updatedUser = await syncProfile(user, {
         full_name: profileForm.full_name,
         email: profileForm.email,
         phone_number: profileForm.phone_number,
         city: profileForm.city,
         market: profileForm.market,
         bio: profileForm.bio,
-        avatar: profileForm.avatar
-      });
+        avatar: profileForm.avatar,
+      }, profilePreview);
 
-      const updatedUser = {
-        ...user,
-        ...response.data
-      };
       if (profilePreview && user?.uid) {
         setProfilePicture(user.uid, profilePreview);
       }

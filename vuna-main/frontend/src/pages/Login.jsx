@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../utils/api';
 import PasswordField from '../components/PasswordField';
+import { syncAuthUser } from '../utils/dataBridge';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ export default function Login() {
       const response = await api.post('login/', { email, password });
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
+      syncAuthUser(response.data.user);
 
       const role = response.data.user.role;
       if (role === 'farmer') {

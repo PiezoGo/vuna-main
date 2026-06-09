@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
-import api from '../utils/api';
+import { patchOrderStatus } from '../utils/dataBridge';
 
 export default function OrderConfirmationPopup({ order, onResolve }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
 
   const handleResponse = async (statusValue) => {
     setLoading(true);
     setError('');
     try {
-      await api.patch(`orders/${order.id}/`, { status: statusValue });
+      await patchOrderStatus(order.id, statusValue, currentUser);
       onResolve(order.id, statusValue);
     } catch (err) {
       console.error(err);
-      setError(err.response?.data?.error || 'Failed to update order status');
+      setError(err.message || 'Failed to update order status');
     } finally {
       setLoading(false);
     }

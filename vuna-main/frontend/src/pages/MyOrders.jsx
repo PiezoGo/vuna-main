@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../utils/api';
 import UserAvatar from '../components/UserAvatar';
+import { fetchBuyerOrders, patchOrderStatus } from '../utils/dataBridge';
 import {
   CheckCircle, AlertTriangle, Clock, MessageSquare, Video,
   Package, ArrowLeft
@@ -16,14 +16,13 @@ export default function MyOrders() {
   const [loading, setLoading] = useState(true);
   const fetchOrders = useCallback(async () => {
     try {
-      const response = await api.get('orders/');
-      setOrders(response.data);
+      setOrders(await fetchBuyerOrders(currentUser.uid));
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentUser.uid]);
 
   useEffect(() => {
     fetchOrders();
@@ -33,10 +32,10 @@ export default function MyOrders() {
 
   const updateStatus = async (orderId, status) => {
     try {
-      await api.patch(`orders/${orderId}/`, { status });
+      await patchOrderStatus(orderId, status, currentUser);
       fetchOrders();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to update order');
+      alert(err.message || 'Failed to update order');
     }
   };
 
