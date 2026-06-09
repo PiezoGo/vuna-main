@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../utils/api';
+import { saveLocalMessage } from '../utils/localChat';
 import { ArrowLeft, Send, Phone, Video } from 'lucide-react';
 
 export default function ChatPage() {
@@ -87,6 +88,7 @@ export default function ChatPage() {
         receiver_id: userId,
         message: textToSend
       });
+      saveLocalMessage(currentUser.uid, userId, textToSend);
       setMessages([...messages, response.data]);
     } catch (err) {
       console.error(err);

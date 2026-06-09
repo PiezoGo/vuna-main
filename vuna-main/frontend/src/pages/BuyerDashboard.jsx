@@ -8,6 +8,11 @@ import {
   ChevronRight, RotateCcw
 } from 'lucide-react';
 import OrderConfirmationPopup from '../components/OrderConfirmationPopup';
+import UserAvatar from '../components/UserAvatar';
+import {
+  getProductStock, isOutOfStock, formatStatus, statusBadgeClass,
+  isDisputeWindowOpen, getDisputeWindowRemaining, isUserOnline
+} from '../utils/marketplaceStore';
 
 /* ─────────────────────────────────────────────────────────────
    localStorage helpers — purely front-end order history store
@@ -244,6 +249,7 @@ export default function BuyerDashboard() {
 
   // ── Open "Order Now" modal ────────────────────────────────
   const handleOpenOrderModal = (product) => {
+    if (isOutOfStock(product)) return;
     const fresh = JSON.parse(localStorage.getItem('user') || '{}');
     setOrderForm({
       buyerName: fresh.full_name || '',
@@ -314,6 +320,34 @@ export default function BuyerDashboard() {
     setDeliveredOrder(null);
     fetchOrders();
     fetchProducts();
+  };
+
+  const updateOrderStatus = async (orderId, status) => {
+    try {
+      await api.patch(`orders/${orderId}/`, { status });
+      fetchOrders();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to update order');
+    }
+  };
+
+  const handleEscalate = () => {
+    alert('Your dispute has been escalated to Vuna support (demo). A team member will contact you within 24 hours.');
+  };
+
+  const handleCallFarmer = (productOrOrder) => {
+    const farmerId = productOrOrder.farmer;
+    if (!isUserOnline(farmerId)) {
+      alert('User offline — the farmer is not currently online.');
+      return;
+    }
+    window.dispatchEvent(new CustomEvent('initiate-call', {
+      detail: {
+        userId: farmerId,
+        userName: productOrOrder.farmer_name,
+        userAvatar: '🌾',
+      },
+    }));
   };
 
   const TAB_LABELS = {
@@ -562,7 +596,10 @@ export default function BuyerDashboard() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {filteredProducts.map((product) => (
+              {filteredProducts.map((product) => {
+                const outOfStock = isOutOfStock(product);
+                const stock = getProductStock(product);
+                return (
                 <div key={product.id} className="bg-white border border-primary/10 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between group hover:shadow-md hover:border-primary/20 transition duration-200">
                   <div>
                     {product.images && product.images.length > 0 ? (
@@ -577,11 +614,18 @@ export default function BuyerDashboard() {
                       </div>
                     )}
                     <div className="p-4">
-                      <div className="flex justify-between items-start mb-2">
+                      <div className="flex justify-between items-start mb-2 gap-2">
                         <h3 className="font-bold text-gray-900 text-lg leading-tight">{product.title}</h3>
-                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold uppercase shrink-0 ml-2">
-                          {product.commodity}
-                        </span>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold uppercase">
+                            {product.commodity}
+                          </span>
+                          {outOfStock && (
+                            <span className="text-[10px] bg-red-50 text-red-600 border border-red-200 px-2 py-0.5 rounded-full font-bold uppercase">
+                              Out of Stock
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="space-y-1 mb-4">
@@ -605,7 +649,7 @@ export default function BuyerDashboard() {
                           <span className="text-xs text-gray-500"> / {product.unit}</span>
                         </div>
                         <span className="text-xs text-gray-700 font-medium bg-gray-100 px-2.5 py-1 rounded-lg">
-                          Qty: {product.quantity}
+                          Stock: {stock}
                         </span>
                       </div>
                     </div>
@@ -615,12 +659,17 @@ export default function BuyerDashboard() {
                   <div className="p-4 pt-0 flex gap-2">
                     {/* ── ORDER NOW button ── */}
                     <button
-                      onClick={() => handleOpenOrderModal(product)}
-                      className="flex-1 py-2.5 bg-primary hover:bg-primary-light text-white text-xs font-bold rounded-xl shadow-md shadow-primary/15 flex items-center justify-center space-x-1.5 transition duration-200"
+                      onClick={() => !outOfStock && handleOpenOrderModal(product)}
+                      disabled={outOfStock}
+                      className={`flex-1 py-2.5 text-white text-xs font-bold rounded-xl shadow-md flex items-center justify-center space-x-1.5 transition duration-200 ${
+                        outOfStock
+                          ? 'bg-gray-300 cursor-not-allowed shadow-none'
+                          : 'bg-primary hover:bg-primary-light shadow-primary/15'
+                      }`}
                       id={`order-now-${product.id}`}
                     >
                       <Package size={14} />
-                      <span>Order Now</span>
+                      <span>{outOfStock ? 'Out of Stock' : 'Order Now'}</span>
                     </button>
                     <button
                       onClick={() => navigate(`/chat/${product.farmer}`)}
@@ -630,15 +679,7 @@ export default function BuyerDashboard() {
                       <span>Chat</span>
                     </button>
                     <button
-                      onClick={() => {
-                        window.dispatchEvent(new CustomEvent('initiate-call', {
-                          detail: {
-                            userId: product.farmer,
-                            userName: product.farmer_name,
-                            userAvatar: '🌾'
-                          }
-                        }));
-                      }}
+                      onClick={() => handleCallFarmer(product)}
                       className="py-2.5 px-3 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-bold rounded-xl border border-green-200 flex items-center justify-center transition duration-200"
                       title={`Video call ${product.farmer_name}`}
                     >
@@ -646,7 +687,8 @@ export default function BuyerDashboard() {
                     </button>
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </div>
@@ -665,67 +707,89 @@ export default function BuyerDashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {orders.map((order) => (
+              {orders.map((order) => {
+                const windowOpen = isDisputeWindowOpen(order);
+                const remaining = getDisputeWindowRemaining(order);
+                return (
                 <div key={order.id} className="bg-white border border-primary/10 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-bold text-gray-900 text-sm">Order #{order.id}</span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase flex items-center space-x-1 ${
-                        order.status === 'completed' ? 'bg-green-50 text-green-600'
-                        : order.status === 'delivered' ? 'bg-blue-50 text-blue-600'
-                        : order.status === 'disputed' ? 'bg-red-50 text-red-600'
-                        : 'bg-yellow-50 text-yellow-600'
-                      }`}>
-                        {order.status === 'completed' && <CheckCircle size={10} className="mr-0.5" />}
-                        {order.status === 'disputed' && <AlertTriangle size={10} className="mr-0.5" />}
-                        {order.status === 'pending' && <Clock size={10} className="mr-0.5" />}
-                        <span>{order.status}</span>
-                      </span>
+                  <div className="flex gap-3">
+                    <UserAvatar userId={order.farmer} name={order.farmer_name} avatar="🌾" size="md" />
+                    <div>
+                      <div className="flex items-center space-x-2 flex-wrap">
+                        <span className="font-bold text-gray-900 text-sm">Order #{order.id}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase flex items-center space-x-1 ${statusBadgeClass(order.status)}`}>
+                          {order.status === 'completed' && <CheckCircle size={10} className="mr-0.5" />}
+                          {order.status === 'disputed' && <AlertTriangle size={10} className="mr-0.5" />}
+                          {order.status === 'pending' && <Clock size={10} className="mr-0.5" />}
+                          <span>{formatStatus(order.status)}</span>
+                        </span>
+                      </div>
+                      <h3 className="font-bold text-gray-800 text-base mt-1">{order.product_title}</h3>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Farmer: <span className="font-medium text-gray-700">{order.farmer_name}</span>
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Qty: <span className="font-medium text-gray-700">{order.quantity} {order.product_unit}</span> | Total: <span className="font-bold text-primary">KES {order.total_price}</span>
+                      </p>
+                      {order.status === 'disputed' && windowOpen && (
+                        <p className="text-[10px] text-orange-600 mt-1 font-medium">
+                          Resolution window: {Math.ceil(remaining / 1000)}s remaining
+                        </p>
+                      )}
                     </div>
-                    <h3 className="font-bold text-gray-800 text-base mt-1">{order.product_title}</h3>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Farmer: <span className="font-medium text-gray-700">{order.farmer_name} ({order.farmer_phone})</span>
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Quantity: <span className="font-medium text-gray-700">{order.quantity} {order.product_unit}</span> | Total Price: <span className="font-bold text-primary">KES {order.total_price}</span>
-                    </p>
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
                     <button
                       onClick={() => navigate(`/chat/${order.farmer}`)}
-                      className="w-full sm:w-auto py-2 px-4 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-semibold rounded-xl border border-gray-200 flex items-center justify-center space-x-1"
+                      className="py-2 px-4 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-semibold rounded-xl border border-gray-200 flex items-center gap-1"
                     >
                       <MessageSquare size={14} />
-                      <span>Chat Farmer</span>
+                      <span>Chat</span>
                     </button>
                     <button
-                      onClick={() => {
-                        window.dispatchEvent(new CustomEvent('initiate-call', {
-                          detail: {
-                            userId: order.farmer,
-                            userName: order.farmer_name,
-                            userAvatar: '🌾'
-                          }
-                        }));
-                      }}
-                      className="py-2 px-3 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded-xl border border-green-200 flex items-center justify-center space-x-1 transition"
-                      title={`Call ${order.farmer_name}`}
+                      onClick={() => handleCallFarmer(order)}
+                      className="py-2 px-3 bg-green-50 hover:bg-green-100 text-green-700 text-xs font-semibold rounded-xl border border-green-200 flex items-center gap-1"
                     >
                       <Video size={14} />
                       <span className="hidden sm:inline">Call</span>
                     </button>
+                    {order.status === 'delivery_in_progress' && (
+                      <button
+                        onClick={() => updateOrderStatus(order.id, 'disputed')}
+                        className="py-2 px-3 bg-red-50 text-red-600 border border-red-200 text-xs font-semibold rounded-xl hover:bg-red-100"
+                      >
+                        Dispute
+                      </button>
+                    )}
+                    {order.status === 'disputed' && windowOpen && (
+                      <button
+                        onClick={() => updateOrderStatus(order.id, 'delivered')}
+                        className="py-2 px-3 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-primary-light"
+                      >
+                        Mark as Complete
+                      </button>
+                    )}
+                    {order.status === 'disputed' && !windowOpen && (
+                      <button
+                        onClick={handleEscalate}
+                        className="py-2 px-3 bg-orange-50 text-orange-700 border border-orange-200 text-xs font-semibold rounded-xl hover:bg-orange-100"
+                      >
+                        Escalate
+                      </button>
+                    )}
                     {order.status === 'delivered' && (
                       <button
                         onClick={() => setDeliveredOrder(order)}
-                        className="w-full sm:w-auto py-2 px-4 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-primary-light transition shadow-md shadow-primary/10"
+                        className="py-2 px-4 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-primary-light shadow-md shadow-primary/10"
                       >
                         Confirm Receipt
                       </button>
                     )}
                   </div>
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </div>
@@ -880,7 +944,7 @@ export default function BuyerDashboard() {
                   <p className="text-xs text-gray-500 mt-0.5">by {selectedProduct.farmer_name} · {selectedProduct.farmer_city}</p>
                   <div className="flex gap-3 mt-1.5 flex-wrap">
                     <span className="text-xs font-bold text-primary">KES {selectedProduct.price_per_unit} / {selectedProduct.unit}</span>
-                    <span className="text-xs text-gray-500">Stock: {selectedProduct.quantity} {selectedProduct.unit}</span>
+                    <span className="text-xs text-gray-500">Stock: {getProductStock(selectedProduct)} {selectedProduct.unit}</span>
                   </div>
                 </div>
               </div>
@@ -924,14 +988,14 @@ export default function BuyerDashboard() {
                       type="number"
                       required
                       min="1"
-                      max={selectedProduct.quantity}
+                      max={getProductStock(selectedProduct)}
                       value={orderForm.quantity}
-                      onChange={(e) => setOrderForm({ ...orderForm, quantity: Math.min(parseInt(e.target.value) || 1, selectedProduct.quantity) })}
+                      onChange={(e) => setOrderForm({ ...orderForm, quantity: Math.min(parseInt(e.target.value) || 1, getProductStock(selectedProduct)) })}
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-primary focus:border-primary text-sm text-center font-bold"
                     />
                     <button
                       type="button"
-                      onClick={() => setOrderForm(f => ({ ...f, quantity: Math.min(f.quantity + 1, selectedProduct.quantity) }))}
+                      onClick={() => setOrderForm(f => ({ ...f, quantity: Math.min(f.quantity + 1, getProductStock(selectedProduct)) }))}
                       className="w-9 h-9 rounded-xl border border-gray-300 text-gray-600 hover:bg-gray-50 font-bold text-lg flex items-center justify-center transition shrink-0"
                     >
                       +

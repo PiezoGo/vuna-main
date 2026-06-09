@@ -1,6 +1,7 @@
 from django.db.models import Q
 from django.core.files.storage import default_storage
 from rest_framework import viewsets, permissions, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
@@ -118,11 +119,16 @@ class OrderViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         product_id = self.request.data.get('product')
         quantity = int(self.request.data.get('quantity', 1))
-        
+
         try:
             product = Product.objects.get(id=product_id)
         except Product.DoesNotExist:
-            raise status.ValidationError({"product": "Product does not exist."})
+            raise ValidationError({"product": "Product does not exist."})
+
+        if product.quantity <= 0:
+            raise ValidationError({"error": "This product is out of stock."})
+        if product.quantity < quantity:
+            raise ValidationError({"error": "Insufficient stock for this order."})
 
         total_price = product.price_per_unit * quantity
         serializer.save(
@@ -137,23 +143,41 @@ class OrderViewSet(viewsets.ModelViewSet):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         new_status = request.data.get('status')
+        current = instance.status
 
         if new_status:
-            # Only farmers can mark as 'delivered'
-            if new_status == 'delivered':
+            if new_status == 'delivery_in_progress':
                 if request.user != instance.farmer:
-                    return Response({'error': 'Only the farmer can mark the order as delivered.'}, status=status.HTTP_403_FORBIDDEN)
-            
-            # Only buyers can mark as 'completed' or 'disputed'
-            elif new_status in ['completed', 'disputed']:
+                    return Response({'error': 'Only the seller can start delivery.'}, status=status.HTTP_403_FORBIDDEN)
+                if current != 'pending':
+                    return Response({'error': 'Only pending orders can be moved to delivery in progress.'}, status=status.HTTP_400_BAD_REQUEST)
+                product = instance.product
+                if product.quantity < instance.quantity:
+                    return Response({'error': 'Insufficient stock to fulfill this order.'}, status=status.HTTP_400_BAD_REQUEST)
+                product.quantity -= instance.quantity
+                product.save()
+
+            elif new_status == 'delivered':
+                if request.user == instance.farmer:
+                    if current not in ['delivery_in_progress', 'disputed']:
+                        return Response({'error': 'Order must be in delivery or disputed before marking delivered.'}, status=status.HTTP_400_BAD_REQUEST)
+                elif request.user == instance.buyer:
+                    if current != 'disputed':
+                        return Response({'error': 'Only disputed orders can be marked complete by the buyer.'}, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    return Response({'error': 'Not authorized to update this order.'}, status=status.HTTP_403_FORBIDDEN)
+
+            elif new_status == 'disputed':
                 if request.user != instance.buyer:
-                    return Response({'error': 'Only the buyer can complete or dispute the order.'}, status=status.HTTP_403_FORBIDDEN)
-                
-                if new_status == 'completed':
-                    # Automatically archive/deactivate the product listing
-                    product = instance.product
-                    product.is_active = False
-                    product.save()
+                    return Response({'error': 'Only the buyer can dispute the order.'}, status=status.HTTP_403_FORBIDDEN)
+                if current != 'delivery_in_progress':
+                    return Response({'error': 'Only orders in delivery can be disputed.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            elif new_status == 'completed':
+                if request.user != instance.buyer:
+                    return Response({'error': 'Only the buyer can complete the order.'}, status=status.HTTP_403_FORBIDDEN)
+                if current != 'delivered':
+                    return Response({'error': 'Order must be delivered before completion.'}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)

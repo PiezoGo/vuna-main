@@ -3,6 +3,8 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Peer } from 'peerjs';
 import api from '../utils/api';
 import { helpContent } from '../utils/helpContent';
+import UserAvatar from './UserAvatar';
+import { markUserOnline, setProfilePicture, getProfilePicture, isUserOnline } from '../utils/marketplaceStore';
 import {
   HelpCircle,
   User,
@@ -47,6 +49,7 @@ export default function Navbar() {
   const [profileError, setProfileError] = useState('');
   const [profileSuccess, setProfileSuccess] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [profilePreview, setProfilePreview] = useState(null);
 
   // calling states
   const [peer, setPeer] = useState(null);
@@ -78,6 +81,7 @@ export default function Navbar() {
         bio: parsedUser.bio || '',
         avatar: parsedUser.avatar || '👤'
       });
+      setProfilePreview(getProfilePicture(parsedUser.uid));
     } else {
       setUser(null);
     }
@@ -94,6 +98,13 @@ export default function Navbar() {
       setUser(null);
     }
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    markUserOnline(user.uid);
+    const interval = setInterval(() => markUserOnline(user.uid), 30000);
+    return () => clearInterval(interval);
+  }, [user?.uid]);
 
   // PeerJS Connection and Signaling Initialization
   useEffect(() => {
@@ -150,6 +161,10 @@ export default function Navbar() {
       
       if (!peer) {
         alert('Calling service not ready yet. Please try again.');
+        return;
+      }
+      if (!isUserOnline(userId)) {
+        alert('User offline — they are not currently online.');
         return;
       }
       if (callState !== 'idle') {
@@ -254,9 +269,12 @@ export default function Navbar() {
         ...user,
         ...response.data
       };
+      if (profilePreview && user?.uid) {
+        setProfilePicture(user.uid, profilePreview);
+      }
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
-      
+
       setProfileSuccess(true);
       setTimeout(() => {
         setProfileSuccess(false);
@@ -409,7 +427,7 @@ export default function Navbar() {
             {/* User display details */}
             <div className="hidden md:flex flex-col text-right">
               <span className="text-sm font-semibold text-gray-800 flex items-center justify-end gap-1.5">
-                <span className="text-base">{user.avatar || '👤'}</span>
+                <UserAvatar userId={user.uid} avatar={user.avatar} name={user.full_name} size="sm" />
                 <span>{user.full_name}</span>
               </span>
               <span className="text-[10px] text-gray-500 capitalize">{user.role === 'both' ? 'Farmer & Buyer' : user.role}</span>
@@ -686,10 +704,40 @@ export default function Navbar() {
                 </div>
               )}
 
+              {(user.role === 'buyer' || user.role === 'both') && (
+                <Link
+                  to="/my-orders"
+                  onClick={() => setShowProfile(false)}
+                  className="mb-4 block text-center py-2.5 bg-primary-accent text-primary text-xs font-bold rounded-xl border border-primary/10 hover:bg-primary/10 transition"
+                >
+                  View My Orders
+                </Link>
+              )}
+
               <form onSubmit={handleProfileSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Profile Picture</label>
+                  <div className="flex items-center gap-4">
+                    <UserAvatar userId={user.uid} avatar={profileForm.avatar} name={profileForm.full_name} size="lg" imageSrc={profilePreview} />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = () => setProfilePreview(reader.result);
+                        reader.readAsDataURL(file);
+                      }}
+                      className="text-xs text-gray-600"
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">Stored locally in your browser as a demo.</p>
+                </div>
+
                 {/* Avatar selection */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Choose Avatar</label>
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">Choose Avatar Emoji</label>
                   <div className="flex flex-wrap gap-2">
                     {avatarPresets.map((preset) => (
                       <button

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../utils/api';
+import PasswordField from '../components/PasswordField';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -124,15 +125,13 @@ export default function Signup() {
             {/* Password */}
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Password</label>
-              <input
-                type="password"
-                name="password"
-                required
-                value={formData.password}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                placeholder="••••••••"
-              />
+              <div className="mt-1">
+                <PasswordField
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                />
+              </div>
             </div>
 
             {/* Phone Number */}

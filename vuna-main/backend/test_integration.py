@@ -116,6 +116,10 @@ def test_flow():
     print(f"Success! Farmer saw message and replied: '{reply_data['message']}'")
 
     print(f"\n--- 8. Farmer Marks Order as Delivered ---")
+    r = requests.patch(BASE_URL + f'orders/{order_id}/', json={"status": "delivery_in_progress"}, headers=headers_farmer)
+    assert r.status_code == 200, f"Farmer starting delivery failed: {r.text}"
+    assert r.json()['status'] == 'delivery_in_progress', f"Expected delivery_in_progress, got: {r.json()['status']}"
+
     r = requests.patch(BASE_URL + f'orders/{order_id}/', json={"status": "delivered"}, headers=headers_farmer)
     assert r.status_code == 200, f"Farmer marking order delivered failed: {r.text}"
     assert r.json()['status'] == 'delivered', f"Expected status delivered, got: {r.json()['status']}"
