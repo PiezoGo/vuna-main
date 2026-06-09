@@ -1,20 +1,44 @@
 import api from './api';
 import {
   mergeApiOrders,
-  mergeApiProducts,
   getOrdersForBuyer,
   getOrdersForSeller,
   createLocalOrder,
   updateLocalOrderStatus,
   upsertLocalOrder,
   upsertLocalProduct,
+  deleteLocalProduct,
   saveLocalUser,
   getLocalProducts,
   normalizeOrder,
+  normalizeProductImages,
+  buildLocalProduct,
+  getMergedProductList,
 } from './localDataService';
 
-function isNetworkError(err) {
-  return !err?.response;
+function shouldUseLocalFallback(err) {
+  if (!err?.response) return true;
+  return err.response.status === 401;
+}
+
+export function formatApiError(err, fallback = 'Something went wrong. Please try again.') {
+  if (!err) return fallback;
+  if (err.message && !err.response) return err.message;
+  const data = err.response?.data;
+  if (!data) return fallback;
+  if (typeof data === 'string') return data;
+  if (data.error) return data.error;
+  if (data.detail) {
+    if (data.detail === 'Invalid token.' || data.detail === 'Authentication credentials were not provided.') {
+      return 'Your session has expired. Please sign in again to sync with the server.';
+    }
+    return typeof data.detail === 'string' ? data.detail : fallback;
+  }
+  const parts = Object.entries(data).map(([key, val]) => {
+    const msg = Array.isArray(val) ? val.join(' ') : String(val);
+    return `${key}: ${msg}`;
+  });
+  return parts.length ? parts.join(' ') : fallback;
 }
 
 export async function fetchBuyerOrders(buyerId) {
@@ -23,7 +47,7 @@ export async function fetchBuyerOrders(buyerId) {
     mergeApiOrders(res.data);
     return res.data.map(normalizeOrder);
   } catch (err) {
-    if (!isNetworkError(err)) throw err;
+    if (!shouldUseLocalFallback(err)) throw err;
     return getOrdersForBuyer(buyerId);
   }
 }
@@ -34,7 +58,7 @@ export async function fetchSellerOrders(sellerId) {
     mergeApiOrders(res.data);
     return res.data.map(normalizeOrder);
   } catch (err) {
-    if (!isNetworkError(err)) throw err;
+    if (!shouldUseLocalFallback(err)) throw err;
     return getOrdersForSeller(sellerId);
   }
 }
@@ -42,22 +66,25 @@ export async function fetchSellerOrders(sellerId) {
 export async function fetchAllProducts() {
   try {
     const res = await api.get('products/');
-    return mergeApiProducts(res.data);
+    const { all } = getMergedProductList(res.data);
+    return all;
   } catch (err) {
-    if (!isNetworkError(err)) throw err;
-    return getLocalProducts();
+    if (!shouldUseLocalFallback(err)) throw err;
+    return getLocalProducts().map(normalizeProductImages);
   }
 }
 
 export async function fetchMyProducts() {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
   try {
     const res = await api.get('products/?my_listings=true');
-    res.data.forEach(upsertLocalProduct);
-    return mergeApiProducts(res.data);
+    const { mine } = getMergedProductList(res.data, user.uid);
+    return mine;
   } catch (err) {
-    if (!isNetworkError(err)) throw err;
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return getLocalProducts().filter((p) => p.farmer === user.uid);
+    if (!shouldUseLocalFallback(err)) throw err;
+    return getLocalProducts()
+      .filter((p) => p.farmer === user.uid)
+      .map(normalizeProductImages);
   }
 }
 
@@ -71,7 +98,7 @@ export async function placeOrder({ product, quantity, buyer }) {
     if (err.response?.data?.error) {
       throw new Error(err.response.data.error);
     }
-    if (!isNetworkError(err)) throw err;
+    if (!shouldUseLocalFallback(err)) throw err;
   }
 
   if (!apiOrder) {
@@ -103,7 +130,7 @@ export async function patchOrderStatus(orderId, status, actor) {
     if (err.response?.data?.error) {
       throw new Error(err.response.data.error);
     }
-    if (!isNetworkError(err)) throw err;
+    if (!shouldUseLocalFallback(err)) throw err;
     return normalizeOrder(
       updateLocalOrderStatus(orderId, status, {
         actorId: actor.uid,
@@ -131,28 +158,28 @@ export async function saveProduct(formData, imageFiles, editingProduct) {
       : await api.post('products/', data, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-    upsertLocalProduct(res.data);
-    return res.data;
+    let saved = normalizeProductImages(res.data);
+    if (!saved.images?.length && imageFiles.some(Boolean)) {
+      const withImages = await buildLocalProduct(formData, imageFiles, editingProduct);
+      saved = { ...saved, images: withImages.images };
+    }
+    upsertLocalProduct(saved);
+    return saved;
   } catch (err) {
-    if (!isNetworkError(err)) throw err;
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const stock = parseInt(formData.quantity, 10) || 0;
-    const local = {
-      id: editingProduct?.id || Date.now(),
-      title: formData.title,
-      commodity: formData.commodity,
-      unit: formData.unit,
-      price_per_unit: formData.price_per_unit,
-      quantity: stock,
-      stock,
-      delivery_time_manual: formData.delivery_time_manual,
-      delivery_time_varies: formData.delivery_time_varies,
-      farmer: user.uid,
-      farmer_name: user.full_name,
-      images: editingProduct?.images || [],
-    };
+    if (!shouldUseLocalFallback(err)) throw err;
+    const local = await buildLocalProduct(formData, imageFiles, editingProduct);
     upsertLocalProduct(local);
     return local;
+  }
+}
+
+export async function deleteProduct(productId) {
+  try {
+    await api.delete(`products/${productId}/`);
+    deleteLocalProduct(productId);
+  } catch (err) {
+    if (!shouldUseLocalFallback(err)) throw err;
+    deleteLocalProduct(productId);
   }
 }
 
@@ -163,7 +190,7 @@ export async function syncProfile(user, profileForm, profilePreview) {
     saveLocalUser(updated);
     return updated;
   } catch (err) {
-    if (!isNetworkError(err)) throw err;
+    if (!shouldUseLocalFallback(err)) throw err;
     const updated = { ...user, ...profileForm };
     saveLocalUser(updated);
     return updated;

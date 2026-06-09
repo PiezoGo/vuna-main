@@ -86,16 +86,22 @@ class ProductViewSet(viewsets.ModelViewSet):
         self._handle_image_uploads(product)
 
     def _handle_image_uploads(self, product):
-        uploaded_images = []
-        for key in ['image1', 'image2', 'image3']:
+        # Start from existing images list, pad to 3 slots
+        existing = list(product.images or [])
+        while len(existing) < 3:
+            existing.append(None)
+
+        changed = False
+        for idx, key in enumerate(['image1', 'image2', 'image3']):
             if key in self.request.FILES:
                 image_file = self.request.FILES[key]
                 file_name = default_storage.save(f"product_images/{product.id}_{key}_{image_file.name}", image_file)
                 file_url = self.request.build_absolute_uri(default_storage.url(file_name))
-                uploaded_images.append(file_url)
-        
-        if uploaded_images:
-            product.images = uploaded_images
+                existing[idx] = file_url
+                changed = True
+
+        if changed:
+            product.images = [url for url in existing if url]
             product.save()
 
 
@@ -285,4 +291,28 @@ class ProfileUpdateView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PublicProfileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, uid):
+        try:
+            user = User.objects.get(uid=uid)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Get their active product listings
+        products = Product.objects.filter(farmer=user, is_active=True).order_by('-created_at')
+        product_data = ProductSerializer(products, many=True, context={'request': request}).data
+
+        # Count completed sales
+        completed_sales = Order.objects.filter(farmer=user, status='completed').count()
+
+        profile_data = UserSerializer(user).data
+        profile_data['products'] = product_data
+        profile_data['completed_sales'] = completed_sales
+        profile_data['total_listings'] = products.count()
+
+        return Response(profile_data)
 

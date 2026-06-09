@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import UserAvatar from '../components/UserAvatar';
+import SellerProfileModal from '../components/SellerProfileModal';
 import { fetchBuyerOrders, patchOrderStatus } from '../utils/dataBridge';
 import {
   CheckCircle, AlertTriangle, Clock, MessageSquare, Video,
@@ -14,6 +15,8 @@ export default function MyOrders() {
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [viewSellerId, setViewSellerId] = useState(null);
+
   const fetchOrders = useCallback(async () => {
     try {
       setOrders(await fetchBuyerOrders(currentUser.uid));
@@ -98,7 +101,7 @@ export default function MyOrders() {
                       </div>
                       <h3 className="font-bold text-gray-800 mt-1">{order.product_title}</h3>
                       <p className="text-xs text-gray-500 mt-1">
-                        Seller: {order.farmer_name} &middot; {order.quantity} {order.product_unit} &middot; KES {order.total_price}
+                        Seller: <button onClick={() => setViewSellerId(order.farmer)} className="font-medium text-primary hover:underline transition">{order.farmer_name}</button> &middot; {order.quantity} {order.product_unit} &middot; KES {order.total_price}
                       </p>
                       <p className="text-[10px] text-gray-400 mt-1">
                         Ordered: {new Date(order.created_at).toLocaleString()}
@@ -169,6 +172,14 @@ export default function MyOrders() {
             );
           })}
         </div>
+      )}
+
+      {/* Seller Profile Modal */}
+      {viewSellerId && (
+        <SellerProfileModal
+          sellerId={viewSellerId}
+          onClose={() => setViewSellerId(null)}
+        />
       )}
     </div>
   );

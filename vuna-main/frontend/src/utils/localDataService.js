@@ -1,6 +1,41 @@
 const USERS_KEY = 'vuna_users';
 const PRODUCTS_KEY = 'vuna_products';
 const ORDERS_KEY = 'vuna_orders';
+const API_ORIGIN = 'http://localhost:8000';
+
+export function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Failed to read image file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function resolveImageUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  if (url.startsWith('/')) return `${API_ORIGIN}${url}`;
+  return url;
+}
+
+export function normalizeProductImages(product) {
+  if (!product) return product;
+  let images = [];
+  if (Array.isArray(product.images) && product.images.length > 0) {
+    images = product.images.filter(Boolean);
+  } else {
+    for (const key of ['image1', 'image2', 'image3']) {
+      if (product[key]) images.push(product[key]);
+    }
+  }
+  return {
+    ...product,
+    images: images.map(resolveImageUrl).filter(Boolean),
+  };
+}
 
 function read(key, fallback) {
   try {
@@ -54,7 +89,7 @@ export function upsertLocalProduct(product) {
   if (!product?.id) return product;
   const products = getLocalProducts();
   const stock = product.stock ?? product.quantity ?? 0;
-  const normalized = { ...product, stock, quantity: stock };
+  const normalized = normalizeProductImages({ ...product, stock, quantity: stock });
   const idx = products.findIndex((p) => p.id === product.id);
   if (idx >= 0) {
     products[idx] = { ...products[idx], ...normalized };
@@ -65,14 +100,52 @@ export function upsertLocalProduct(product) {
   return normalized;
 }
 
+export function deleteLocalProduct(productId) {
+  const products = getLocalProducts().filter((p) => String(p.id) !== String(productId));
+  write(PRODUCTS_KEY, products);
+}
+
 export function mergeApiProducts(apiProducts = []) {
   const merged = apiProducts.map((p) => {
     const stock = p.quantity ?? p.stock ?? 0;
-    const normalized = { ...p, stock, quantity: stock };
+    const normalized = normalizeProductImages({ ...p, stock, quantity: stock });
     upsertLocalProduct(normalized);
     return normalized;
   });
   return merged;
+}
+
+export async function buildLocalProduct(formData, imageFiles, editingProduct) {
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const stock = parseInt(formData.quantity, 10) || 0;
+  const existingImages = editingProduct?.images || [];
+  const images = [];
+
+  for (let idx = 0; idx < 3; idx++) {
+    const file = imageFiles[idx];
+    if (file) {
+      images.push(await fileToDataUrl(file));
+    } else if (editingProduct && existingImages[idx]) {
+      images.push(existingImages[idx]);
+    }
+  }
+
+  return {
+    id: editingProduct?.id || Date.now(),
+    title: formData.title,
+    commodity: formData.commodity,
+    unit: formData.unit,
+    price_per_unit: formData.price_per_unit,
+    quantity: stock,
+    stock,
+    delivery_time_manual: formData.delivery_time_manual,
+    delivery_time_varies: formData.delivery_time_varies,
+    farmer: user.uid,
+    farmer_name: user.full_name,
+    farmer_city: user.city,
+    farmer_market: user.market,
+    images,
+  };
 }
 
 export function updateLocalProductStock(productId, delta) {
@@ -246,9 +319,9 @@ export function updateLocalOrderStatus(orderId, status, { actorId, actorRole } =
 
 export function getMergedProductList(apiProducts = [], sellerId = null) {
   const merged = mergeApiProducts(apiProducts);
-  const localOnly = getLocalProducts().filter(
-    (p) => !merged.some((m) => m.id === p.id)
-  );
+  const localOnly = getLocalProducts()
+    .filter((p) => !merged.some((m) => String(m.id) === String(p.id)))
+    .map(normalizeProductImages);
   const all = [...merged, ...localOnly];
   if (sellerId) {
     return {

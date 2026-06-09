@@ -8,6 +8,7 @@ import {
   ChevronRight, RotateCcw
 } from 'lucide-react';
 import OrderConfirmationPopup from '../components/OrderConfirmationPopup';
+import SellerProfileModal from '../components/SellerProfileModal';
 import UserAvatar from '../components/UserAvatar';
 import {
   getProductStock, isOutOfStock, formatStatus, statusBadgeClass,
@@ -81,6 +82,9 @@ export default function BuyerDashboard() {
 
   // Active Delivered Order for Confirmation Popup
   const [deliveredOrder, setDeliveredOrder] = useState(null);
+
+  // Seller Profile Modal
+  const [viewSellerId, setViewSellerId] = useState(null);
 
   useEffect(() => {
     fetchProducts();
@@ -342,20 +346,22 @@ export default function BuyerDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
-        {Object.keys(TAB_LABELS).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`shrink-0 py-3 px-5 text-sm font-semibold capitalize border-b-2 transition duration-200 ${
-              activeTab === tab
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
+      <div className="w-full max-w-full min-w-0 overflow-hidden border-b border-gray-200 mb-6">
+        <div className="flex flex-nowrap overflow-x-auto hide-scrollbar [-webkit-overflow-scrolling:touch]">
+          {Object.keys(TAB_LABELS).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`shrink-0 py-3 px-5 text-sm font-semibold capitalize border-b-2 transition duration-200 whitespace-nowrap ${
+                activeTab === tab
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {TAB_LABELS[tab]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── MARKETPLACE TAB ─────────────────────────── */}
@@ -581,7 +587,12 @@ export default function BuyerDashboard() {
                       <div className="space-y-1 mb-4">
                         <p className="text-xs text-gray-600 flex items-center space-x-1">
                           <span className="font-semibold text-gray-800">Farmer:</span>
-                          <span>{product.farmer_name}</span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setViewSellerId(product.farmer); }}
+                            className="text-primary font-semibold hover:underline transition"
+                          >
+                            {product.farmer_name}
+                          </button>
                         </p>
                         <p className="text-xs text-gray-500 flex items-center space-x-1">
                           <MapPin size={12} className="text-gray-400" />
@@ -676,7 +687,7 @@ export default function BuyerDashboard() {
                       </div>
                       <h3 className="font-bold text-gray-800 text-base mt-1">{order.product_title}</h3>
                       <p className="text-xs text-gray-500 mt-1">
-                        Farmer: <span className="font-medium text-gray-700">{order.farmer_name}</span>
+                        Farmer: <button onClick={() => setViewSellerId(order.farmer)} className="font-medium text-primary hover:underline transition">{order.farmer_name}</button>
                       </p>
                       <p className="text-xs text-gray-500">
                         Qty: <span className="font-medium text-gray-700">{order.quantity} {order.product_unit}</span> | Total: <span className="font-bold text-primary">KES {order.total_price}</span>
@@ -954,6 +965,15 @@ export default function BuyerDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Seller Profile Modal */}
+      {viewSellerId && (
+        <SellerProfileModal
+          sellerId={viewSellerId}
+          onClose={() => setViewSellerId(null)}
+          onOrderProduct={handleOpenOrderModal}
+        />
       )}
     </div>
   );

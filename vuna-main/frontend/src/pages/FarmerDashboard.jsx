@@ -7,6 +7,7 @@ import LocalChatModal from '../components/LocalChatModal';
 import { getProductStock, isOutOfStock, formatStatus, statusBadgeClass, isUserOnline } from '../utils/marketplaceStore';
 import {
   fetchSellerOrders, fetchMyProducts, fetchAllProducts, patchOrderStatus, saveProduct,
+  deleteProduct, formatApiError,
 } from '../utils/dataBridge';
 
 export default function FarmerDashboard() {
@@ -158,7 +159,7 @@ export default function FarmerDashboard() {
       loadAllProducts();
     } catch (err) {
       console.error(err);
-      setFormError(err.response?.data ? JSON.stringify(err.response.data) : 'Failed to save listing.');
+      setFormError(formatApiError(err, 'Failed to save listing.'));
     } finally {
       setFormLoading(false);
     }
@@ -167,11 +168,12 @@ export default function FarmerDashboard() {
   const handleDeleteProduct = async (id) => {
     if (!window.confirm('Are you sure you want to delete this listing?')) return;
     try {
-      await api.delete(`products/${id}/`);
+      await deleteProduct(id);
       loadProducts();
+      loadAllProducts();
     } catch (err) {
       console.error(err);
-      alert('Failed to delete product.');
+      alert(formatApiError(err, 'Failed to delete product.'));
     }
   };
 
@@ -340,26 +342,28 @@ export default function FarmerDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-6">
-        {[
-          { id: 'orders', label: `Orders (${orders.length})` },
-          { id: 'my-products', label: 'My Products' },
-          { id: 'all-products', label: 'All Products' },
-          { id: 'chats', label: `Inbox (${chats.length})` },
-          { id: 'calculator', label: 'Calculator' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 sm:flex-initial py-3 px-4 text-sm font-semibold border-b-2 transition duration-200 whitespace-nowrap ${
-              activeTab === tab.id
-                ? 'border-primary text-primary'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="w-full max-w-full min-w-0 overflow-hidden border-b border-gray-200 mb-6">
+        <div className="flex flex-nowrap overflow-x-auto hide-scrollbar [-webkit-overflow-scrolling:touch]">
+          {[
+            { id: 'orders', label: `Orders (${orders.length})` },
+            { id: 'my-products', label: 'My Products' },
+            { id: 'all-products', label: 'All Products' },
+            { id: 'chats', label: `Inbox (${chats.length})` },
+            { id: 'calculator', label: 'Calculator' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`shrink-0 py-3 px-4 text-sm font-semibold border-b-2 transition duration-200 whitespace-nowrap ${
+                activeTab === tab.id
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {stockToast && (

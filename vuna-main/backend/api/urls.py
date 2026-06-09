@@ -8,7 +8,8 @@ from .views import (
     ChatMessageView,
     ChatInboxView,
     FarmerEarningsView,
-    ProfileUpdateView
+    ProfileUpdateView,
+    PublicProfileView
 )
 
 router = DefaultRouter()
@@ -22,5 +23,6 @@ urlpatterns = [
     path('messages/chats/', ChatInboxView.as_view(), name='chat_inbox'),
     path('farmer/earnings/', FarmerEarningsView.as_view(), name='farmer_earnings'),
     path('profile/', ProfileUpdateView.as_view(), name='profile_update'),
+    path('profile/<uuid:uid>/', PublicProfileView.as_view(), name='public_profile'),
     path('', include(router.urls)),
 ]

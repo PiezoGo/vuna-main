@@ -4,7 +4,7 @@ import { Peer } from 'peerjs';
 import { helpContent } from '../utils/helpContent';
 import UserAvatar from './UserAvatar';
 import { markUserOnline, setProfilePicture, getProfilePicture, isUserOnline } from '../utils/marketplaceStore';
-import { syncProfile } from '../utils/dataBridge';
+import { syncProfile, formatApiError } from '../utils/dataBridge';
 import {
   HelpCircle,
   User,
@@ -278,7 +278,7 @@ export default function Navbar() {
       }, 2000);
     } catch (err) {
       console.error(err);
-      setProfileError(err.response?.data ? Object.entries(err.response.data).map(([key, val]) => `${key}: ${val}`).join(', ') : 'Failed to update profile.');
+      setProfileError(formatApiError(err, 'Failed to update profile.'));
     } finally {
       setProfileLoading(false);
     }
