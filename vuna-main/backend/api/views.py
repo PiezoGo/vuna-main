@@ -1,3 +1,5 @@
+import uuid as uuid_lib
+
 from django.db.models import Q
 from django.core.files.storage import default_storage
 from rest_framework import viewsets, permissions, status
@@ -13,9 +15,27 @@ from .serializers import (
     RegisterSerializer,
     ProductSerializer,
     OrderSerializer,
-    ChatMessageSerializer
+    DriverSerializer,
+    ChatMessageSerializer,
 )
 
+
+# ────────────────────────────────────────────────────────────
+#  Permission helpers
+# ────────────────────────────────────────────────────────────
+class IsAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == 'admin'
+
+
+class IsDriver(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == 'driver'
+
+
+# ────────────────────────────────────────────────────────────
+#  Auth views
+# ────────────────────────────────────────────────────────────
 class RegisterView(APIView):
     permission_classes = []
 
@@ -39,11 +59,11 @@ class LoginView(APIView):
         password = request.data.get('password')
         if not email or not password:
             return Response({'error': 'Email and password are required.'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         user = authenticate(username=email, password=password)
         if not user:
             return Response({'error': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
-        
+
         token, _ = Token.objects.get_or_create(user=user)
         return Response({
             'token': token.key,
@@ -51,6 +71,60 @@ class LoginView(APIView):
         })
 
 
+class LogoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        try:
+            request.user.auth_token.delete()
+        except Exception:
+            pass
+        return Response({'detail': 'Logged out.'}, status=status.HTTP_200_OK)
+
+
+# ────────────────────────────────────────────────────────────
+#  Profile views
+# ────────────────────────────────────────────────────────────
+class ProfileUpdateView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response(UserSerializer(request.user).data)
+
+    def put(self, request):
+        user = request.user
+        serializer = UserSerializer(user, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PublicProfileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, uid):
+        try:
+            user = User.objects.get(uid=uid)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        products = Product.objects.filter(farmer=user, is_active=True).order_by('-created_at')
+        product_data = ProductSerializer(products, many=True, context={'request': request}).data
+
+        completed_sales = Order.objects.filter(farmer=user, status='completed').count()
+
+        profile_data = UserSerializer(user).data
+        profile_data['products'] = product_data
+        profile_data['completed_sales'] = completed_sales
+        profile_data['total_listings'] = products.count()
+
+        return Response(profile_data)
+
+
+# ────────────────────────────────────────────────────────────
+#  Product views
+# ────────────────────────────────────────────────────────────
 class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -65,12 +139,10 @@ class ProductViewSet(viewsets.ModelViewSet):
             # Marketplace feed: only show active listings
             queryset = queryset.filter(is_active=True)
 
-        # Filters by city
         city = self.request.query_params.get('city')
         if city:
             queryset = queryset.filter(farmer__city__icontains=city)
 
-        # Filters by commodity
         commodity = self.request.query_params.get('commodity')
         if commodity:
             queryset = queryset.filter(commodity__icontains=commodity)
@@ -86,7 +158,6 @@ class ProductViewSet(viewsets.ModelViewSet):
         self._handle_image_uploads(product)
 
     def _handle_image_uploads(self, product):
-        # Start from existing images list, pad to 3 slots
         existing = list(product.images or [])
         while len(existing) < 3:
             existing.append(None)
@@ -95,7 +166,9 @@ class ProductViewSet(viewsets.ModelViewSet):
         for idx, key in enumerate(['image1', 'image2', 'image3']):
             if key in self.request.FILES:
                 image_file = self.request.FILES[key]
-                file_name = default_storage.save(f"product_images/{product.id}_{key}_{image_file.name}", image_file)
+                file_name = default_storage.save(
+                    f"product_images/{product.id}_{key}_{image_file.name}", image_file
+                )
                 file_url = self.request.build_absolute_uri(default_storage.url(file_name))
                 existing[idx] = file_url
                 changed = True
@@ -105,6 +178,9 @@ class ProductViewSet(viewsets.ModelViewSet):
             product.save()
 
 
+# ────────────────────────────────────────────────────────────
+#  Order views
+# ────────────────────────────────────────────────────────────
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -117,9 +193,14 @@ class OrderViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(farmer=user)
         elif user.role == 'buyer':
             queryset = queryset.filter(buyer=user)
-        else:  # role == 'both'
-            queryset = queryset.filter(Q(buyer=user) | Q(farmer=user))
-        
+        elif user.role == 'driver':
+            queryset = queryset.filter(driver=user)
+        # admin sees all
+
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
         return queryset.order_by('-created_at')
 
     def perform_create(self, serializer):
@@ -137,6 +218,11 @@ class OrderViewSet(viewsets.ModelViewSet):
             raise ValidationError({"error": "Insufficient stock for this order."})
 
         total_price = product.price_per_unit * quantity
+
+        # Deduct stock immediately when order is placed
+        product.quantity -= quantity
+        product.save()
+
         serializer.save(
             buyer=self.request.user,
             farmer=product.farmer,
@@ -145,52 +231,319 @@ class OrderViewSet(viewsets.ModelViewSet):
             status='pending'
         )
 
-    def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
-        instance = self.get_object()
-        new_status = request.data.get('status')
-        current = instance.status
 
-        if new_status:
-            if new_status == 'delivery_in_progress':
-                if request.user != instance.farmer:
-                    return Response({'error': 'Only the seller can start delivery.'}, status=status.HTTP_403_FORBIDDEN)
-                if current != 'pending':
-                    return Response({'error': 'Only pending orders can be moved to delivery in progress.'}, status=status.HTTP_400_BAD_REQUEST)
-                product = instance.product
-                if product.quantity < instance.quantity:
-                    return Response({'error': 'Insufficient stock to fulfill this order.'}, status=status.HTTP_400_BAD_REQUEST)
-                product.quantity -= instance.quantity
-                product.save()
+# ────────────────────────────────────────────────────────────
+#  Mock M-PESA Payment
+# ────────────────────────────────────────────────────────────
+class MockPayView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
-            elif new_status == 'delivered':
-                if request.user == instance.farmer:
-                    if current not in ['delivery_in_progress', 'disputed']:
-                        return Response({'error': 'Order must be in delivery or disputed before marking delivered.'}, status=status.HTTP_400_BAD_REQUEST)
-                elif request.user == instance.buyer:
-                    if current != 'disputed':
-                        return Response({'error': 'Only disputed orders can be marked complete by the buyer.'}, status=status.HTTP_400_BAD_REQUEST)
-                else:
-                    return Response({'error': 'Not authorized to update this order.'}, status=status.HTTP_403_FORBIDDEN)
+    def post(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-            elif new_status == 'disputed':
-                if request.user != instance.buyer:
-                    return Response({'error': 'Only the buyer can dispute the order.'}, status=status.HTTP_403_FORBIDDEN)
-                if current != 'delivery_in_progress':
-                    return Response({'error': 'Only orders in delivery can be disputed.'}, status=status.HTTP_400_BAD_REQUEST)
+        if order.buyer != request.user:
+            return Response({'error': 'You can only pay for your own orders.'}, status=status.HTTP_403_FORBIDDEN)
 
-            elif new_status == 'completed':
-                if request.user != instance.buyer:
-                    return Response({'error': 'Only the buyer can complete the order.'}, status=status.HTTP_403_FORBIDDEN)
-                if current != 'delivered':
-                    return Response({'error': 'Order must be delivered before completion.'}, status=status.HTTP_400_BAD_REQUEST)
+        if order.status != 'pending':
+            return Response(
+                {'error': f'Order is already {order.status}. Only pending orders can be paid.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
-        serializer.is_valid(raise_exception=True)
-        self.perform_update(serializer)
+        # Generate mock payment ID
+        mock_id = f"MOCK_{uuid_lib.uuid4().hex[:10].upper()}"
+        order.status = 'paid'
+        order.mock_payment_id = mock_id
+        order.save()
+
+        return Response({
+            'detail': 'Payment successful (mock).',
+            'mock_payment_id': mock_id,
+            'order': OrderSerializer(order).data
+        })
+
+
+# ────────────────────────────────────────────────────────────
+#  Admin views
+# ────────────────────────────────────────────────────────────
+class AdminDriverManagementView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        drivers = User.objects.filter(role='driver').order_by('-is_driver_active', 'full_name')
+        serializer = DriverSerializer(drivers, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        """Admin creates a new driver user."""
+        full_name = request.data.get('full_name')
+        phone_number = request.data.get('phone_number')
+        vehicle_type = request.data.get('vehicle_type', '')
+
+        if not full_name or not phone_number:
+            return Response(
+                {'error': 'full_name and phone_number are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Create driver user with a default password
+        email = f"driver_{uuid_lib.uuid4().hex[:6]}@vuna.co.ke"
+        driver = User.objects.create_user(
+            email=email,
+            username=email,
+            password='driver123',
+            full_name=full_name,
+            role='driver',
+            phone_number=phone_number,
+            vehicle_type=vehicle_type,
+            is_driver_active=True,
+        )
+
+        return Response(DriverSerializer(driver).data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request):
+        """Admin deactivates a driver."""
+        driver_id = request.data.get('driver_id')
+        if not driver_id:
+            return Response({'error': 'driver_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            driver = User.objects.get(uid=driver_id, role='driver')
+        except User.DoesNotExist:
+            return Response({'error': 'Driver not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        driver.is_driver_active = False
+        driver.save()
+        return Response({'detail': f'Driver {driver.full_name} deactivated.'})
+
+
+class AdminAssignDriverView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        order_id = request.data.get('order_id')
+        driver_id = request.data.get('driver_id')
+
+        if not order_id or not driver_id:
+            return Response(
+                {'error': 'order_id and driver_id are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if order.status != 'paid':
+            return Response(
+                {'error': f'Order status is "{order.status}". Only paid orders can be assigned a driver.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            driver = User.objects.get(uid=driver_id, role='driver')
+        except User.DoesNotExist:
+            return Response({'error': 'Driver not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not driver.is_available_driver:
+            return Response(
+                {'error': f'Driver {driver.full_name} is not available (already assigned or inactive).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Assign
+        order.driver = driver
+        order.status = 'assigned'
+        order.save()
+
+        driver.current_order = order
+        driver.save()
+
+        return Response({
+            'detail': f'Driver {driver.full_name} assigned to Order #{order.id}.',
+            'order': OrderSerializer(order).data
+        })
+
+
+class AdminCompleteOrderView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        order_id = request.data.get('order_id')
+        if not order_id:
+            return Response({'error': 'order_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            order = Order.objects.get(id=order_id)
+        except Order.DoesNotExist:
+            return Response({'error': 'Order not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if order.status != 'delivered':
+            return Response(
+                {'error': f'Order status is "{order.status}". Only delivered orders can be completed.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        order.farmer_paid = True
+        order.status = 'completed'
+        order.save()
+
+        # Clear driver assignment
+        if order.driver:
+            driver = order.driver
+            driver.current_order = None
+            driver.save()
+
+        return Response({
+            'detail': f'Order #{order.id} completed. Farmer marked as paid.',
+            'order': OrderSerializer(order).data
+        })
+
+
+class AdminAllOrdersView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        queryset = Order.objects.all().order_by('-created_at')
+
+        status_filter = request.query_params.get('status')
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        serializer = OrderSerializer(queryset, many=True)
         return Response(serializer.data)
 
 
+class AdminUsersView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        users = User.objects.all().order_by('role', 'full_name')
+        role_filter = request.query_params.get('role')
+        if role_filter:
+            users = users.filter(role=role_filter)
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data)
+
+    def delete(self, request):
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({'error': 'user_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(uid=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if user.role == 'admin':
+            return Response({'error': 'Cannot delete an admin user.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        name = user.full_name
+        user.delete()
+        return Response({'detail': f'User {name} deleted.'})
+
+
+# ────────────────────────────────────────────────────────────
+#  Driver views
+# ────────────────────────────────────────────────────────────
+class DriverOrderView(APIView):
+    permission_classes = [IsDriver]
+
+    def get(self, request):
+        driver = request.user
+        current = None
+        if driver.current_order:
+            current = OrderSerializer(driver.current_order).data
+
+        history = Order.objects.filter(
+            driver=driver
+        ).exclude(
+            id=driver.current_order_id if driver.current_order else -1
+        ).order_by('-created_at')
+
+        return Response({
+            'current_order': current,
+            'history': OrderSerializer(history, many=True).data
+        })
+
+
+class DriverUpdateStatusView(APIView):
+    permission_classes = [IsDriver]
+
+    VALID_TRANSITIONS = {
+        'assigned': 'collected',
+        'collected': 'in_transit',
+        'in_transit': 'delivered',
+    }
+
+    def post(self, request):
+        new_status = request.data.get('status')
+        driver = request.user
+
+        if not driver.current_order:
+            return Response(
+                {'error': 'You have no current order assigned.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        order = driver.current_order
+        expected_next = self.VALID_TRANSITIONS.get(order.status)
+
+        if not expected_next:
+            return Response(
+                {'error': f'Order status "{order.status}" cannot be advanced by driver.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if new_status != expected_next:
+            return Response(
+                {'error': f'Invalid transition. Expected next status: "{expected_next}", got "{new_status}".'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        order.status = new_status
+        order.save()
+
+        # If delivered, clear driver assignment
+        if new_status == 'delivered':
+            driver.current_order = None
+            driver.save()
+
+        return Response({
+            'detail': f'Order #{order.id} status updated to {new_status}.',
+            'order': OrderSerializer(order).data
+        })
+
+
+# ────────────────────────────────────────────────────────────
+#  Farmer Earnings
+# ────────────────────────────────────────────────────────────
+class FarmerEarningsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        if user.role != 'farmer':
+            return Response({'error': 'Only farmers can check earnings.'}, status=status.HTTP_403_FORBIDDEN)
+
+        completed_orders = Order.objects.filter(farmer=user, status='completed').order_by('-created_at')
+        serializer = OrderSerializer(completed_orders, many=True)
+
+        total_earnings = sum(order.total_price for order in completed_orders)
+
+        return Response({
+            'total_earnings': float(total_earnings),
+            'completed_orders': serializer.data
+        })
+
+
+# ────────────────────────────────────────────────────────────
+#  Chat views
+# ────────────────────────────────────────────────────────────
 class ChatMessageView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -198,15 +551,15 @@ class ChatMessageView(APIView):
         receiver_id = request.query_params.get('receiver_id')
         if not receiver_id:
             return Response({'error': 'receiver_id query parameter is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         messages = ChatMessage.objects.filter(
             (Q(sender=request.user) & Q(receiver_id=receiver_id)) |
             (Q(sender_id=receiver_id) & Q(receiver=request.user))
         ).order_by('timestamp')
-        
+
         # Mark received messages as read
         ChatMessage.objects.filter(sender_id=receiver_id, receiver=request.user, is_read=False).update(is_read=True)
-        
+
         serializer = ChatMessageSerializer(messages, many=True)
         return Response(serializer.data)
 
@@ -215,18 +568,18 @@ class ChatMessageView(APIView):
         message_text = request.data.get('message')
         if not receiver_id or not message_text:
             return Response({'error': 'receiver_id and message are required.'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         try:
             receiver = User.objects.get(uid=receiver_id)
         except User.DoesNotExist:
             return Response({'error': 'Receiver user not found.'}, status=status.HTTP_404_NOT_FOUND)
-        
+
         message = ChatMessage.objects.create(
             sender=request.user,
             receiver=receiver,
             message=message_text
         )
-        
+
         serializer = ChatMessageSerializer(message)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -260,59 +613,3 @@ class ChatInboxView(APIView):
 
         inbox_data.sort(key=lambda x: x['last_message']['timestamp'], reverse=True)
         return Response(inbox_data)
-
-
-class FarmerEarningsView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        user = request.user
-        if user.role not in ['farmer', 'both']:
-            return Response({'error': 'Only farmers can check earnings.'}, status=status.HTTP_403_FORBIDDEN)
-        
-        completed_orders = Order.objects.filter(farmer=user, status='completed').order_by('-created_at')
-        serializer = OrderSerializer(completed_orders, many=True)
-        
-        total_earnings = sum(order.total_price for order in completed_orders)
-        
-        return Response({
-            'total_earnings': float(total_earnings),
-            'completed_orders': serializer.data
-        })
-
-
-class ProfileUpdateView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def put(self, request):
-        user = request.user
-        serializer = UserSerializer(user, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class PublicProfileView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request, uid):
-        try:
-            user = User.objects.get(uid=uid)
-        except User.DoesNotExist:
-            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Get their active product listings
-        products = Product.objects.filter(farmer=user, is_active=True).order_by('-created_at')
-        product_data = ProductSerializer(products, many=True, context={'request': request}).data
-
-        # Count completed sales
-        completed_sales = Order.objects.filter(farmer=user, status='completed').count()
-
-        profile_data = UserSerializer(user).data
-        profile_data['products'] = product_data
-        profile_data['completed_sales'] = completed_sales
-        profile_data['total_listings'] = products.count()
-
-        return Response(profile_data)
-

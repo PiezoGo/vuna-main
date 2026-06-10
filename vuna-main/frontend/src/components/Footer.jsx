@@ -2,25 +2,27 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 export default function Footer() {
-  const year = new Date().getFullYear();
-
   return (
-    <footer className="bg-white border-t border-primary/10 mt-auto">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <span className="text-lg font-black text-primary">Vuna</span>
-            <p className="text-xs text-gray-500 mt-1">Kenyan B2B Agricultural Marketplace</p>
+    <footer className="bg-white border-t border-gray-100 mt-auto">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-gradient-to-br from-primary to-primary-dark rounded-md flex items-center justify-center">
+              <span className="text-white font-bold text-xs">V</span>
+            </div>
+            <span className="text-sm font-semibold text-gray-700">Vuna</span>
+            <span className="text-xs text-gray-400">· Farm to Market</span>
           </div>
-          <nav className="flex flex-wrap gap-4 text-xs font-semibold">
-            <Link to="/about" className="text-gray-600 hover:text-primary transition">About</Link>
-            <Link to="/terms" className="text-gray-600 hover:text-primary transition">Terms &amp; Conditions</Link>
-            <Link to="/team" className="text-gray-600 hover:text-primary transition">Team</Link>
-          </nav>
-        </div>
-        <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col sm:flex-row sm:justify-between gap-2 text-[11px] text-gray-400">
-          <span>&copy; {year} Vuna. All rights reserved.</span>
-          <a href="mailto:hello@vuna.co.ke" className="hover:text-primary transition">hello@vuna.co.ke</a>
+
+          <div className="flex items-center gap-4 text-xs text-gray-400">
+            <Link to="/about" className="hover:text-primary transition-colors">About</Link>
+            <Link to="/terms" className="hover:text-primary transition-colors">Terms</Link>
+            <Link to="/team" className="hover:text-primary transition-colors">Team</Link>
+          </div>
+
+          <p className="text-xs text-gray-400">
+            © {new Date().getFullYear()} Vuna. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>

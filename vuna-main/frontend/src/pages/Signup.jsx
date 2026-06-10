@@ -1,252 +1,236 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Loader2, Sprout, ShoppingBag } from 'lucide-react';
 import api from '../utils/api';
-import PasswordField from '../components/PasswordField';
-import { syncAuthUser } from '../utils/dataBridge';
+
+const MARKETS = ['Muthurwa', 'Wakulima', 'Marikiti', 'Other'];
+const BUYER_TYPES = [
+  { value: 'hotel', label: 'Hotel / Restaurant' },
+  { value: 'retailer', label: 'Retailer' },
+  { value: 'wholesaler', label: 'Wholesaler' },
+];
 
 export default function Signup() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
+  const [form, setForm] = useState({
+    full_name: '',
     email: '',
     password: '',
-    full_name: '',
     phone_number: '',
-    role: 'farmer',
+    role: '',
     country: 'Kenya',
     city: '',
-    market: 'Muthurwa',
-    customMarket: '',
+    market: '',
+    buyer_type: '',
+    farmer_delivery_time: '',
   });
-  const [error, setError] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const update = (field, value) => setForm((prev) => ({ ...prev, [field]: value }));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
+    setError('');
 
-    const submitMarket = formData.market === 'Other' ? formData.customMarket : formData.market;
-    if (!submitMarket) {
-      setError('Please specify your market.');
+    if (!form.role) {
+      setError('Please select your role.');
       setLoading(false);
       return;
     }
 
     try {
-      const payload = {
-        email: formData.email,
-        password: formData.password,
-        full_name: formData.full_name,
-        phone_number: formData.phone_number,
-        role: formData.role,
-        country: formData.country,
-        city: formData.city,
-        market: submitMarket,
-      };
+      const payload = { ...form };
+      if (payload.role !== 'buyer') delete payload.buyer_type;
+      if (payload.role !== 'farmer') delete payload.farmer_delivery_time;
 
-      const response = await api.post('register/', payload);
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      syncAuthUser(response.data.user);
-
-      // Redirect based on role
-      if (response.data.user.role === 'farmer') {
-        navigate('/farmer/dashboard');
-      } else {
-        navigate('/buyer/dashboard');
-      }
+      const res = await api.post('register/', payload);
+      localStorage.setItem('token', res.data.token);
+      localStorage.setItem('user', JSON.stringify(res.data.user));
+      navigate(res.data.user.role === 'farmer' ? '/farmer/dashboard' : '/buyer/dashboard');
     } catch (err) {
-      console.error(err);
-      setError(
-        err.response?.data
-          ? Object.entries(err.response.data)
-              .map(([key, val]) => `${key}: ${val}`)
-              .join(', ')
-          : 'Registration failed. Please try again.'
-      );
+      const data = err.response?.data;
+      if (data) {
+        const msgs = Object.values(data).flat().join(' ');
+        setError(msgs || 'Registration failed.');
+      } else {
+        setError('Registration failed. Please try again.');
+      }
     } finally {
-      setFormData({ ...formData, password: '' });
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-primary-bg flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="text-center text-4xl font-extrabold text-primary tracking-tight">
-          Vuna
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600">
-          Connecting Kenyan Farmers and Buyers
-        </p>
-      </div>
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-primary-bg">
+      <div className="w-full max-w-lg animate-slideUp">
+        {/* Logo */}
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 bg-gradient-to-br from-primary to-primary-dark rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-primary/20 mb-4">
+            <span className="text-white font-bold text-2xl">V</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Create your account</h1>
+          <p className="text-sm text-gray-500 mt-1">Join Vuna's farm-to-market network</p>
+        </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-xl border border-primary/10 rounded-2xl sm:px-10">
-          <h3 className="text-lg font-bold text-gray-900 mb-6 text-center">Create your account</h3>
-          
-          {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl p-3">
-              {error}
-            </div>
-          )}
-
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            {/* Full Name */}
+        {/* Form Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Role Selection */}
             <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Full Name</label>
-              <input
-                type="text"
-                name="full_name"
-                required
-                value={formData.full_name}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                placeholder="Jane Doe"
-              />
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Email address</label>
-              <input
-                type="email"
-                name="email"
-                required
-                value={formData.email}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                placeholder="jane@example.com"
-              />
-            </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Password</label>
-              <div className="mt-1">
-                <PasswordField
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
+              <label className="block text-sm font-medium text-gray-700 mb-2">I am a...</label>
+              <div className="grid grid-cols-2 gap-3">
+                <RoleCard
+                  icon={<Sprout className="w-5 h-5" />}
+                  label="Farmer"
+                  desc="Sell your produce"
+                  active={form.role === 'farmer'}
+                  onClick={() => update('role', 'farmer')}
+                />
+                <RoleCard
+                  icon={<ShoppingBag className="w-5 h-5" />}
+                  label="Buyer"
+                  desc="Buy fresh produce"
+                  active={form.role === 'buyer'}
+                  onClick={() => update('role', 'buyer')}
                 />
               </div>
             </div>
 
-            {/* Phone Number */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Phone Number</label>
-              <input
-                type="text"
-                name="phone_number"
-                required
-                value={formData.phone_number}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                placeholder="0712345678"
-              />
+            {/* Name & Email */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InputField label="Full Name" required value={form.full_name} onChange={(v) => update('full_name', v)} placeholder="John Kamau" />
+              <InputField label="Email" type="email" required value={form.email} onChange={(v) => update('email', v)} placeholder="you@example.com" />
             </div>
 
-            {/* Role selection */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Are you a Farmer or a Buyer?</label>
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                {['farmer', 'buyer', 'both'].map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, role: r })}
-                    className={`py-2 px-3 text-xs font-semibold rounded-xl border capitalize ${
-                      formData.role === r
-                        ? 'bg-primary text-white border-primary shadow-md'
-                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    {r}
+            {/* Phone & Password */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InputField label="Phone Number" required value={form.phone_number} onChange={(v) => update('phone_number', v)} placeholder="+254 712 345 678" />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPw ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={form.password}
+                    onChange={(e) => update('password', e.target.value)}
+                    placeholder="Min. 6 characters"
+                    className="w-full px-4 py-2.5 pr-11 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                  />
+                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
-                ))}
+                </div>
               </div>
             </div>
 
-            {/* Location (Country / City) */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* City & Market */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <InputField label="City" value={form.city} onChange={(v) => update('city', v)} placeholder="Nairobi" />
               <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Country</label>
-                <input
-                  type="text"
-                  name="country"
-                  disabled
-                  value={formData.country}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-200 bg-gray-50 text-gray-500 rounded-xl sm:text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">City</label>
-                <input
-                  type="text"
-                  name="city"
-                  required
-                  value={formData.city}
-                  onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                  placeholder="Nairobi"
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Market</label>
+                <select
+                  value={form.market}
+                  onChange={(e) => update('market', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white"
+                >
+                  <option value="">Select market</option>
+                  {MARKETS.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
               </div>
             </div>
 
-            {/* Market Dropdown */}
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Market</label>
-              <select
-                name="market"
-                value={formData.market}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm bg-white focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-              >
-                <option value="Muthurwa">Muthurwa</option>
-                <option value="Wakulima">Wakulima</option>
-                <option value="Marikiti">Marikiti</option>
-                <option value="Other">Other (Specify below)</option>
-              </select>
-            </div>
+            {/* Buyer-specific: buyer_type */}
+            {form.role === 'buyer' && (
+              <div className="animate-slideDown">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Buyer Type</label>
+                <select
+                  value={form.buyer_type}
+                  onChange={(e) => update('buyer_type', e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all bg-white"
+                >
+                  <option value="">Select type</option>
+                  {BUYER_TYPES.map((bt) => <option key={bt.value} value={bt.value}>{bt.label}</option>)}
+                </select>
+              </div>
+            )}
 
-            {formData.market === 'Other' && (
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Specify Market</label>
-                <input
-                  type="text"
-                  name="customMarket"
-                  required
-                  value={formData.customMarket}
-                  onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
-                  placeholder="Enter market name"
+            {/* Farmer-specific: delivery time */}
+            {form.role === 'farmer' && (
+              <div className="animate-slideDown">
+                <InputField
+                  label="Estimated Delivery Time (optional)"
+                  value={form.farmer_delivery_time}
+                  onChange={(v) => update('farmer_delivery_time', v)}
+                  placeholder="e.g., Same day, 2-3 days"
                 />
               </div>
             )}
 
-            <div>
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-4 w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-lg shadow-primary/20 text-sm font-semibold text-white bg-primary hover:bg-primary-light focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition duration-200 disabled:opacity-50"
-              >
-                {loading ? 'Registering...' : 'Sign up'}
-              </button>
-            </div>
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-2.5 rounded-xl">
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 bg-primary hover:bg-primary-dark disabled:bg-primary-light text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+            >
+              {loading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Creating account...</>
+              ) : (
+                'Create Account'
+              )}
+            </button>
           </form>
 
-          <div className="mt-6 text-center text-xs">
-            <span className="text-gray-600">Already have an account? </span>
-            <Link to="/login" className="font-semibold text-primary hover:underline">
-              Log in
+          <p className="text-center text-sm text-gray-500 mt-6">
+            Already have an account?{' '}
+            <Link to="/login" className="text-primary hover:text-primary-dark font-medium transition-colors">
+              Sign in
             </Link>
-          </div>
+          </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function RoleCard({ icon, label, desc, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col items-center gap-1.5 p-4 rounded-xl border-2 transition-all ${
+        active
+          ? 'border-primary bg-primary/5 text-primary shadow-sm'
+          : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
+      }`}
+    >
+      {icon}
+      <span className="font-semibold text-sm">{label}</span>
+      <span className="text-xs opacity-70">{desc}</span>
+    </button>
+  );
+}
+
+function InputField({ label, type = 'text', required = false, value, onChange, placeholder }) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+      <input
+        type={type}
+        required={required}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+      />
     </div>
   );
 }

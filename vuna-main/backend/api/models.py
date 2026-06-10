@@ -2,17 +2,24 @@ import uuid
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
+
 class User(AbstractUser):
     ROLE_CHOICES = [
         ('farmer', 'Farmer'),
         ('buyer', 'Buyer'),
-        ('both', 'Both'),
+        ('admin', 'Admin'),
+        ('driver', 'Driver'),
     ]
     MARKET_CHOICES = [
         ('Muthurwa', 'Muthurwa'),
         ('Wakulima', 'Wakulima'),
         ('Marikiti', 'Marikiti'),
         ('Other', 'Other'),
+    ]
+    BUYER_TYPE_CHOICES = [
+        ('hotel', 'Hotel'),
+        ('retailer', 'Retailer'),
+        ('wholesaler', 'Wholesaler'),
     ]
 
     uid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -22,10 +29,24 @@ class User(AbstractUser):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
     phone_number = models.CharField(max_length=20)
     country = models.CharField(max_length=100, default='Kenya')
-    city = models.CharField(max_length=100)
-    market = models.CharField(max_length=100)
+    city = models.CharField(max_length=100, blank=True, default='')
+    market = models.CharField(max_length=100, blank=True, default='')
     bio = models.TextField(blank=True, default='')
     avatar = models.CharField(max_length=255, blank=True, default='')
+
+    # Buyer-specific fields
+    buyer_type = models.CharField(max_length=20, choices=BUYER_TYPE_CHOICES, blank=True, null=True)
+
+    # Farmer-specific fields
+    farmer_delivery_time = models.CharField(max_length=100, blank=True, default='')
+
+    # Driver-specific fields
+    vehicle_type = models.CharField(max_length=100, blank=True, default='')
+    is_driver_active = models.BooleanField(default=True)
+    current_order = models.OneToOneField(
+        'Order', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='assigned_driver_user'
+    )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'full_name']
@@ -38,6 +59,11 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.full_name} ({self.role})"
 
+    @property
+    def is_available_driver(self):
+        """Returns True if this is an active driver with no current assignment."""
+        return self.role == 'driver' and self.is_driver_active and self.current_order is None
+
 
 class Product(models.Model):
     UNIT_CHOICES = [
@@ -47,7 +73,7 @@ class Product(models.Model):
         ('bunch', 'bunch'),
         ('litre', 'litre'),
     ]
-    
+
     farmer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products')
     title = models.CharField(max_length=255)
     commodity = models.CharField(max_length=100, blank=True, null=True)
@@ -67,18 +93,27 @@ class Product(models.Model):
 class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
-        ('delivery_in_progress', 'Delivery In Progress'),
+        ('paid', 'Paid'),
+        ('assigned', 'Assigned'),
+        ('collected', 'Collected'),
+        ('in_transit', 'In Transit'),
         ('delivered', 'Delivered'),
         ('completed', 'Completed'),
-        ('disputed', 'Disputed'),
+        ('cancelled', 'Cancelled'),
     ]
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='orders')
     buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='buyer_orders')
     farmer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='farmer_orders')
+    driver = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='driver_orders', limit_choices_to={'role': 'driver'}
+    )
     quantity = models.PositiveIntegerField()
     total_price = models.DecimalField(max_digits=12, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    mock_payment_id = models.CharField(max_length=50, blank=True, null=True)
+    farmer_paid = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
