@@ -143,10 +143,18 @@ function ProductCard({ product, onEdit, onDelete }) {
       <div className="p-4">
         <h3 className="font-semibold text-gray-900 text-sm mb-1">{product.title}</h3>
         {product.commodity && <p className="text-xs text-gray-400 mb-2">{product.commodity}</p>}
-        <div className="flex items-baseline gap-1 mb-2">
-          <span className="text-lg font-bold text-primary">KSh {Number(product.price_per_unit).toLocaleString()}</span>
-          <span className="text-xs text-gray-400">/{product.unit}</span>
+        <div className="flex flex-col gap-0.5 mb-2">
+          <div className="flex items-baseline gap-1">
+            <span className="text-sm font-medium text-gray-500">Listed:</span>
+            <span className="text-base font-bold text-primary">KSh {Number(product.listed_price_per_unit || 0).toLocaleString()}</span>
+            <span className="text-xs text-gray-400">/{product.unit}</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xs text-gray-400">Your Base:</span>
+            <span className="text-xs font-semibold text-gray-600">KSh {Number(product.base_price_per_unit || 0).toLocaleString()}</span>
+          </div>
         </div>
+        {product.harvest_date && <p className="text-xs text-green-600 mb-2">Harvest: {product.harvest_date}</p>}
         <p className="text-xs text-gray-500 mb-3">Stock: {product.quantity} {product.unit}</p>
         <div className="flex gap-2">
           <button onClick={() => onEdit(product)} className="flex-1 flex items-center justify-center gap-1 py-2 text-xs font-medium text-primary bg-primary/5 hover:bg-primary/10 rounded-lg transition-colors">
@@ -166,8 +174,9 @@ function ProductForm({ product, onClose, onSaved }) {
     title: product?.title || '',
     commodity: product?.commodity || '',
     unit: product?.unit || 'kg',
-    price_per_unit: product?.price_per_unit || '',
+    base_price_per_unit: product?.base_price_per_unit || '',
     quantity: product?.quantity || '',
+    harvest_date: product?.harvest_date || '',
   });
   const [files, setFiles] = useState({ image1: null, image2: null, image3: null });
   const [loading, setLoading] = useState(false);
@@ -214,7 +223,7 @@ function ProductForm({ product, onClose, onSaved }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Unit *</label>
             <select required value={form.unit} onChange={(e) => setForm({...form, unit: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white">
@@ -222,12 +231,19 @@ function ProductForm({ product, onClose, onSaved }) {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Price/Unit (KSh) *</label>
-            <input type="number" required min="1" value={form.price_per_unit} onChange={(e) => setForm({...form, price_per_unit: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            <label className="block text-xs font-medium text-gray-600 mb-1">Base Price (KSh) *</label>
+            <input type="number" required min="1" value={form.base_price_per_unit} onChange={(e) => setForm({...form, base_price_per_unit: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+            {form.base_price_per_unit && (
+              <p className="text-[10px] text-gray-500 mt-1">Listed: KSh {(Number(form.base_price_per_unit) * 1.2).toFixed(2)} (+20% logistics)</p>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Quantity *</label>
             <input type="number" required min="1" value={form.quantity} onChange={(e) => setForm({...form, quantity: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Harvest Date</label>
+            <input type="date" value={form.harvest_date} onChange={(e) => setForm({...form, harvest_date: e.target.value})} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
           </div>
         </div>
 

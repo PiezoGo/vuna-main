@@ -31,8 +31,8 @@ export default function OrderCard({ order, actions, showDriver = false, showFarm
             <p className="text-sm font-medium text-gray-700">{order.quantity} {order.product_unit}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400 mb-0.5">Total</p>
-            <p className="text-sm font-bold text-primary">KSh {Number(order.total_price).toLocaleString()}</p>
+            <p className="text-xs text-gray-400 mb-0.5">{showBuyer ? 'Your Earnings' : 'Total'}</p>
+            <p className="text-sm font-bold text-primary">KSh {Number(showBuyer && order.farmer_earnings ? order.farmer_earnings : order.total_price).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
           </div>
         </div>
 
@@ -60,8 +60,14 @@ export default function OrderCard({ order, actions, showDriver = false, showFarm
           )}
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <Calendar className="w-3.5 h-3.5" />
-            <span>{date}</span>
+            <span>Ordered: {date}</span>
           </div>
+          {order.product_harvest_date && (
+            <div className="flex items-center gap-2 text-xs text-green-600">
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Harvest: {order.product_harvest_date}</span>
+            </div>
+          )}
         </div>
 
         {/* Mock payment badge */}

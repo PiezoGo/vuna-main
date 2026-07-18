@@ -148,9 +148,10 @@ function BrowseProductCard({ product, onOrder, onChat }) {
         </div>
 
         <div className="flex items-baseline gap-1 mb-2">
-          <span className="text-lg font-bold text-primary">KSh {Number(product.price_per_unit).toLocaleString()}</span>
+          <span className="text-lg font-bold text-primary">KSh {Number(product.listed_price_per_unit || 0).toLocaleString()}</span>
           <span className="text-xs text-gray-400">/{product.unit}</span>
         </div>
+        {product.harvest_date && <p className="text-xs text-green-600 mb-2">Harvest: {product.harvest_date}</p>}
         <p className="text-xs text-gray-500 mb-3">Available: {product.quantity} {product.unit}</p>
 
         <div className="flex gap-2">
@@ -178,7 +179,10 @@ function PlaceOrderModal({ product, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const total = quantity * Number(product.price_per_unit);
+  const listedPrice = Number(product.listed_price_per_unit || 0);
+  const baseTotal = quantity * listedPrice;
+  const platformFee = baseTotal * 0.08;
+  const total = baseTotal + platformFee;
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -203,7 +207,7 @@ function PlaceOrderModal({ product, onClose, onSuccess }) {
         <div className="bg-gray-50 rounded-xl p-4 mb-4">
           <h4 className="font-medium text-gray-900">{product.title}</h4>
           <p className="text-sm text-gray-500">{product.farmer_name} · {product.farmer_city}</p>
-          <p className="text-primary font-bold mt-1">KSh {Number(product.price_per_unit).toLocaleString()} / {product.unit}</p>
+          <p className="text-primary font-bold mt-1">KSh {listedPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} / {product.unit}</p>
         </div>
 
         <div className="mb-4">
@@ -219,10 +223,18 @@ function PlaceOrderModal({ product, onClose, onSuccess }) {
           <p className="text-xs text-gray-400 mt-1">Max available: {product.quantity}</p>
         </div>
 
-        <div className="bg-primary/5 rounded-xl p-4 mb-4">
-          <div className="flex justify-between items-center">
+        <div className="bg-primary/5 rounded-xl p-4 mb-4 space-y-2 text-sm">
+          <div className="flex justify-between items-center text-gray-600">
+            <span>Subtotal ({quantity} {product.unit})</span>
+            <span>KSh {baseTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+          </div>
+          <div className="flex justify-between items-center text-gray-600">
+            <span>Platform Fee (8%)</span>
+            <span>KSh {platformFee.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+          </div>
+          <div className="pt-2 border-t border-primary/10 flex justify-between items-center">
             <span className="font-medium text-gray-900">Total</span>
-            <span className="text-xl font-bold text-primary">KSh {total.toLocaleString()}</span>
+            <span className="text-xl font-bold text-primary">KSh {total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
           </div>
         </div>
 

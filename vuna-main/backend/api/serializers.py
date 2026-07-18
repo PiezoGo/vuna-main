@@ -60,7 +60,7 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'farmer', 'farmer_uid', 'farmer_name', 'farmer_city',
             'farmer_market', 'farmer_phone',
-            'title', 'commodity', 'unit', 'price_per_unit', 'quantity',
+            'title', 'commodity', 'unit', 'base_price_per_unit', 'listed_price_per_unit', 'quantity', 'harvest_date',
             'delivery_time_manual', 'delivery_time_varies', 'images',
             'created_at', 'is_active'
         ]
@@ -70,7 +70,9 @@ class ProductSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
     product_title = serializers.ReadOnlyField(source='product.title')
     product_unit = serializers.ReadOnlyField(source='product.unit')
-    product_price = serializers.ReadOnlyField(source='product.price_per_unit')
+    product_base_price = serializers.ReadOnlyField(source='product.base_price_per_unit')
+    product_listed_price = serializers.ReadOnlyField(source='product.listed_price_per_unit')
+    product_harvest_date = serializers.ReadOnlyField(source='product.harvest_date')
     product_images = serializers.ReadOnlyField(source='product.images')
     buyer_name = serializers.ReadOnlyField(source='buyer.full_name')
     buyer_phone = serializers.ReadOnlyField(source='buyer.phone_number')
@@ -83,16 +85,16 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id', 'product', 'product_title', 'product_unit', 'product_price',
-            'product_images',
+            'id', 'product', 'product_title', 'product_unit', 'product_base_price', 'product_listed_price',
+            'product_harvest_date', 'product_images',
             'buyer', 'buyer_name', 'buyer_phone', 'buyer_city',
             'farmer', 'farmer_name', 'farmer_phone', 'farmer_city',
             'driver', 'driver_name',
-            'quantity', 'total_price', 'status',
+            'quantity', 'total_price', 'logistics_fee', 'platform_fee', 'farmer_earnings', 'status',
             'mock_payment_id', 'farmer_paid',
             'created_at'
         ]
-        read_only_fields = ['buyer', 'farmer', 'total_price', 'created_at', 'driver']
+        read_only_fields = ['buyer', 'farmer', 'total_price', 'logistics_fee', 'platform_fee', 'farmer_earnings', 'created_at', 'driver']
 
     def get_driver_name(self, obj):
         if obj.driver:

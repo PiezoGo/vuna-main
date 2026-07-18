@@ -1,4 +1,5 @@
 import uuid as uuid_lib
+from decimal import Decimal
 
 from django.db.models import Q
 from django.core.files.storage import default_storage
@@ -147,14 +148,22 @@ class ProductViewSet(viewsets.ModelViewSet):
         if commodity:
             queryset = queryset.filter(commodity__icontains=commodity)
 
+        harvest_date = self.request.query_params.get('harvest_date')
+        if harvest_date:
+            queryset = queryset.filter(harvest_date=harvest_date)
+
         return queryset.order_by('-created_at')
 
     def perform_create(self, serializer):
-        product = serializer.save(farmer=self.request.user)
+        base_price = Decimal(self.request.data.get('base_price_per_unit', 0))
+        listed_price = base_price * Decimal('1.20')
+        product = serializer.save(farmer=self.request.user, listed_price_per_unit=listed_price)
         self._handle_image_uploads(product)
 
     def perform_update(self, serializer):
-        product = serializer.save()
+        base_price = Decimal(self.request.data.get('base_price_per_unit', serializer.instance.base_price_per_unit))
+        listed_price = base_price * Decimal('1.20')
+        product = serializer.save(listed_price_per_unit=listed_price)
         self._handle_image_uploads(product)
 
     def _handle_image_uploads(self, product):
@@ -217,7 +226,11 @@ class OrderViewSet(viewsets.ModelViewSet):
         if product.quantity < quantity:
             raise ValidationError({"error": "Insufficient stock for this order."})
 
-        total_price = product.price_per_unit * quantity
+        listed = product.listed_price_per_unit or (product.base_price_per_unit * Decimal('1.20'))
+        buyer_total = listed * quantity * Decimal('1.08')
+        logistics_fee = product.base_price_per_unit * quantity * Decimal('0.20')
+        platform_fee = listed * quantity * Decimal('0.08')
+        farmer_earnings = product.base_price_per_unit * quantity * Decimal('0.92')
 
         # Deduct stock immediately when order is placed
         product.quantity -= quantity
@@ -227,7 +240,10 @@ class OrderViewSet(viewsets.ModelViewSet):
             buyer=self.request.user,
             farmer=product.farmer,
             product=product,
-            total_price=total_price,
+            total_price=buyer_total,
+            logistics_fee=logistics_fee,
+            platform_fee=platform_fee,
+            farmer_earnings=farmer_earnings,
             status='pending'
         )
 
@@ -533,7 +549,7 @@ class FarmerEarningsView(APIView):
         completed_orders = Order.objects.filter(farmer=user, status='completed').order_by('-created_at')
         serializer = OrderSerializer(completed_orders, many=True)
 
-        total_earnings = sum(order.total_price for order in completed_orders)
+        total_earnings = sum((order.farmer_earnings or 0) for order in completed_orders)
 
         return Response({
             'total_earnings': float(total_earnings),

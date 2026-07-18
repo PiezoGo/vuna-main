@@ -78,8 +78,10 @@ class Product(models.Model):
     title = models.CharField(max_length=255)
     commodity = models.CharField(max_length=100, blank=True, null=True)
     unit = models.CharField(max_length=10, choices=UNIT_CHOICES)
-    price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
+    base_price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
+    listed_price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     quantity = models.PositiveIntegerField()
+    harvest_date = models.DateField(null=True, blank=True)
     delivery_time_manual = models.PositiveIntegerField(blank=True, null=True)
     delivery_time_varies = models.BooleanField(default=False)
     images = models.JSONField(default=list, blank=True)  # List of image URLs
@@ -110,7 +112,10 @@ class Order(models.Model):
         related_name='driver_orders', limit_choices_to={'role': 'driver'}
     )
     quantity = models.PositiveIntegerField()
-    total_price = models.DecimalField(max_digits=12, decimal_places=2)
+    total_price = models.DecimalField(max_digits=12, decimal_places=2)  # This is the buyer_total
+    logistics_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    platform_fee = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    farmer_earnings = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     mock_payment_id = models.CharField(max_length=50, blank=True, null=True)
     farmer_paid = models.BooleanField(default=False)

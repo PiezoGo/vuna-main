@@ -11,7 +11,7 @@ class UserAdmin(admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = ['title', 'farmer', 'price_per_unit', 'quantity', 'unit', 'is_active']
+    list_display = ['title', 'farmer', 'base_price_per_unit', 'listed_price_per_unit', 'quantity', 'unit', 'is_active']
     list_filter = ['is_active', 'unit']
     search_fields = ['title', 'farmer__full_name']
 

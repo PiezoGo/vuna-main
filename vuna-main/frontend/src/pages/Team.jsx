@@ -2,9 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 const TEAM = [
-  { name: 'Amina Wanjiku', role: 'Co-founder & Product Lead', bio: 'Passionate about connecting Kenyan farmers to fair markets.' },
-  { name: 'James Otieno', role: 'Lead Engineer', bio: 'Builds reliable tools for rural and urban agricultural trade.' },
-  { name: 'Grace Muthoni', role: 'Operations & Partnerships', bio: 'Works with market associations across Nairobi and beyond.' },
+  { name: 'Joel Kamau', role: 'Co-founder & Product Lead', bio: 'Passionate about connecting Kenyan farmers to fair markets.' },
+  { name: 'Michael Ochieng', role: 'Lead Engineer', bio: 'Builds reliable tools for rural and urban agricultural trade.' },
+  { name: 'Ian Wahome', role: 'Operations & Partnerships', bio: 'Works with market associations across Nairobi and beyond.' },
 ];
 
 export default function Team() {

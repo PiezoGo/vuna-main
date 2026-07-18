@@ -74,10 +74,18 @@ export default function MPesaModal({ order, onClose, onSuccess }) {
                   <span className="text-sm text-gray-500">Quantity</span>
                   <span className="text-sm font-medium text-gray-700">{order.quantity} {order.product_unit}</span>
                 </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-500">Subtotal</span>
+                  <span className="text-sm font-medium text-gray-700">KSh {(Number(order.total_price) - Number(order.platform_fee || 0)).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-500">Platform Fee</span>
+                  <span className="text-sm font-medium text-gray-700">KSh {Number(order.platform_fee || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
                 <div className="border-t border-gray-200 my-2" />
                 <div className="flex justify-between items-center">
                   <span className="text-base font-semibold text-gray-900">Total</span>
-                  <span className="text-lg font-bold text-green-700">KSh {Number(order.total_price).toLocaleString()}</span>
+                  <span className="text-lg font-bold text-green-700">KSh {Number(order.total_price).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
               </div>
 
