@@ -188,21 +188,48 @@ function ProductForm({ product, onClose, onSaved }) {
     setError('');
 
     const formData = new FormData();
-    Object.entries(form).forEach(([k, v]) => formData.append(k, v));
+    // Append all text fields; skip empty harvest_date so Django gets null not ""
+    Object.entries(form).forEach(([k, v]) => {
+      if (k === 'harvest_date' && !v) return;
+      formData.append(k, v);
+    });
+    // Append image files only if chosen
     Object.entries(files).forEach(([k, v]) => { if (v) formData.append(k, v); });
 
     try {
+      // ⚠️  Do NOT pass { headers: { 'Content-Type': 'multipart/form-data' } }
+      // The api interceptor handles stripping Content-Type for FormData so
+      // the browser can set the correct multipart boundary automatically.
       if (product) {
-        await api.patch(`products/${product.id}/`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.patch(`products/${product.id}/`, formData);
       } else {
-        await api.post('products/', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+        await api.post('products/', formData);
       }
       onSaved();
     } catch (err) {
-      setError('Failed to save product.');
+      // Extract a human-readable message from the Django REST Framework error
+      const data = err.response?.data;
+      if (data) {
+        if (typeof data === 'string') {
+          setError(data);
+        } else {
+          // DRF returns field-level errors as { field: ["msg"] }
+          const messages = Object.entries(data)
+            .map(([field, msgs]) => {
+              const text = Array.isArray(msgs) ? msgs.join(' ') : String(msgs);
+              return field === 'non_field_errors' ? text : `${field}: ${text}`;
+            })
+            .join(' | ');
+          setError(messages || 'Failed to save product. Please try again.');
+        }
+      } else {
+        setError(err.message || 'Network error — please check your connection.');
+      }
+      console.error('[ProductForm] save error:', err.response?.status, data ?? err.message);
     }
     setLoading(false);
   };
+
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-md p-5 mb-6 animate-scaleIn">
