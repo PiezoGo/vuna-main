@@ -182,6 +182,8 @@ class ProductViewSet(viewsets.ModelViewSet):
                 raw_url = default_storage.url(file_name)
                 if raw_url.startswith('http'):
                     file_url = raw_url
+                elif raw_url.startswith('//'):
+                    file_url = 'https:' + raw_url
                 else:
                     file_url = self.request.build_absolute_uri(raw_url)
                 existing[idx] = file_url

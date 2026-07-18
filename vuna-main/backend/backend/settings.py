@@ -63,6 +63,10 @@ STORAGES = {
     },
 }
 
+# Legacy settings for older Django versions or packages that rely on it
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 # ── Middleware ────────────────────────────────────────────────────────────────
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',  # Must be first
