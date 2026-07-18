@@ -11,7 +11,7 @@ load_dotenv(BASE_DIR / '.env')
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-me-in-production')
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['*']
 render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if render_host:
     ALLOWED_HOSTS.append(render_host)
@@ -117,9 +117,12 @@ AUTH_PASSWORD_VALIDATORS = [
 # ── CORS ──────────────────────────────────────────────────────────────────────
 _client_url = os.environ.get('CLIENT_URL', 'http://localhost:5173')
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://localhost:5174',
+    "https://vuna-main.vercel.app",  
+    "http://localhost:5173",
 ]
+
+# Also allow credentials if using cookies/tokens
+CORS_ALLOW_CREDENTIALS = Tru
 if _client_url and _client_url not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(_client_url)
 
