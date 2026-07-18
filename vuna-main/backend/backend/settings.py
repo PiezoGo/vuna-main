@@ -122,7 +122,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 # Also allow credentials if using cookies/tokens
-CORS_ALLOW_CREDENTIALS = Tru
+CORS_ALLOW_CREDENTIALS = True
 if _client_url and _client_url not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(_client_url)
 
