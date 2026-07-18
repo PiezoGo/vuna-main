@@ -178,7 +178,12 @@ class ProductViewSet(viewsets.ModelViewSet):
                 file_name = default_storage.save(
                     f"product_images/{product.id}_{key}_{image_file.name}", image_file
                 )
-                file_url = self.request.build_absolute_uri(default_storage.url(file_name))
+                # Cloudinary storage returns a full CDN URL; for local dev use absolute URI
+                raw_url = default_storage.url(file_name)
+                if raw_url.startswith('http'):
+                    file_url = raw_url
+                else:
+                    file_url = self.request.build_absolute_uri(raw_url)
                 existing[idx] = file_url
                 changed = True
 
