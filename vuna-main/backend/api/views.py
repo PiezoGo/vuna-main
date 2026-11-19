@@ -1,9 +1,10 @@
 import uuid as uuid_lib
-from decimal import Decimal
 
+from django.db import transaction
 from django.db.models import Q
 from django.core.files.storage import default_storage
-from rest_framework import viewsets, permissions, status
+from rest_framework import filters, mixins, viewsets, permissions, status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -11,8 +12,11 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 
 from .models import User, Product, Order, ChatMessage
+from .permissions import IsAdmin, IsBuyer, IsDriver, IsFarmer, IsProductOwnerOrAdmin
+from .pricing import listed_price, price_order
 from .serializers import (
     UserSerializer,
+    ProfileUpdateSerializer,
     RegisterSerializer,
     ProductSerializer,
     OrderSerializer,
@@ -24,14 +28,7 @@ from .serializers import (
 # ────────────────────────────────────────────────────────────
 #  Permission helpers
 # ────────────────────────────────────────────────────────────
-class IsAdmin(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == 'admin'
-
-
-class IsDriver(permissions.BasePermission):
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == 'driver'
+# Role and ownership permissions live in api/permissions.py
 
 
 # ────────────────────────────────────────────────────────────
@@ -94,10 +91,10 @@ class ProfileUpdateView(APIView):
 
     def put(self, request):
         user = request.user
-        serializer = UserSerializer(user, data=request.data, partial=True)
+        serializer = ProfileUpdateSerializer(user, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            return Response(UserSerializer(user).data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -126,44 +123,76 @@ class PublicProfileView(APIView):
 # ────────────────────────────────────────────────────────────
 #  Product views
 # ────────────────────────────────────────────────────────────
+class ProductPagination(PageNumberPagination):
+    page_size = 24
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
 class ProductViewSet(viewsets.ModelViewSet):
+    """
+    Public catalogue (list/retrieve) plus farmer-owned listing management.
+
+    Query params: commodity, city, market, harvest_date, search, ordering,
+    page, page_size, my_listings=true (farmer's own listings, unpaginated).
+    """
     serializer_class = ProductSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = ProductPagination
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['title', 'commodity']
+    ordering_fields = ['created_at', 'listed_price_per_unit', 'harvest_date']
+    ordering = ['-created_at']
+
+    def get_permissions(self):
+        if self.action in ('list', 'retrieve') and not self._wants_my_listings():
+            return [permissions.AllowAny()]
+        if self.action == 'create':
+            return [IsFarmer()]
+        if self._wants_my_listings():
+            return [IsFarmer()]
+        return [IsProductOwnerOrAdmin()]
+
+    def _wants_my_listings(self):
+        return self.request.query_params.get('my_listings') == 'true'
 
     def get_queryset(self):
-        queryset = Product.objects.all()
-        my_listings = self.request.query_params.get('my_listings')
+        queryset = Product.objects.select_related('farmer')
 
-        if my_listings == 'true':
+        if self._wants_my_listings():
             queryset = queryset.filter(farmer=self.request.user)
-        else:
-            # Marketplace feed: only show active listings
+        elif self.action in ('list', 'retrieve'):
+            # Marketplace feed: only active listings
             queryset = queryset.filter(is_active=True)
+        # update/destroy: all products; ownership is checked per object
 
-        city = self.request.query_params.get('city')
-        if city:
-            queryset = queryset.filter(farmer__city__icontains=city)
+        params = self.request.query_params
+        if params.get('city'):
+            queryset = queryset.filter(farmer__city__icontains=params['city'])
+        if params.get('market'):
+            queryset = queryset.filter(farmer__market__iexact=params['market'])
+        if params.get('commodity'):
+            queryset = queryset.filter(commodity__icontains=params['commodity'])
+        if params.get('harvest_date'):
+            queryset = queryset.filter(harvest_date=params['harvest_date'])
 
-        commodity = self.request.query_params.get('commodity')
-        if commodity:
-            queryset = queryset.filter(commodity__icontains=commodity)
+        return queryset
 
-        harvest_date = self.request.query_params.get('harvest_date')
-        if harvest_date:
-            queryset = queryset.filter(harvest_date=harvest_date)
-
-        return queryset.order_by('-created_at')
+    def paginate_queryset(self, queryset):
+        # A farmer's own listings are a short management list; keep it unpaginated.
+        if self._wants_my_listings():
+            return None
+        return super().paginate_queryset(queryset)
 
     def perform_create(self, serializer):
-        base_price = Decimal(self.request.data.get('base_price_per_unit', 0))
-        listed_price = base_price * Decimal('1.20')
-        product = serializer.save(farmer=self.request.user, listed_price_per_unit=listed_price)
+        base_price = serializer.validated_data['base_price_per_unit']
+        product = serializer.save(farmer=self.request.user, listed_price_per_unit=listed_price(base_price))
         self._handle_image_uploads(product)
 
     def perform_update(self, serializer):
-        base_price = Decimal(self.request.data.get('base_price_per_unit', serializer.instance.base_price_per_unit))
-        listed_price = base_price * Decimal('1.20')
-        product = serializer.save(listed_price_per_unit=listed_price)
+        base_price = serializer.validated_data.get(
+            'base_price_per_unit', serializer.instance.base_price_per_unit
+        )
+        product = serializer.save(listed_price_per_unit=listed_price(base_price))
         self._handle_image_uploads(product)
 
     def _handle_image_uploads(self, product):
@@ -197,13 +226,24 @@ class ProductViewSet(viewsets.ModelViewSet):
 # ────────────────────────────────────────────────────────────
 #  Order views
 # ────────────────────────────────────────────────────────────
-class OrderViewSet(viewsets.ModelViewSet):
+class OrderViewSet(mixins.ListModelMixin,
+                   mixins.RetrieveModelMixin,
+                   mixins.CreateModelMixin,
+                   viewsets.GenericViewSet):
+    """
+    Orders are read-only once created. Status changes happen only through the
+    payment, admin and driver endpoints.
+    """
     serializer_class = OrderSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [IsBuyer()]
+        return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Order.objects.all()
+        queryset = Order.objects.select_related('product', 'buyer', 'farmer', 'driver')
 
         if user.role == 'farmer':
             queryset = queryset.filter(farmer=user)
@@ -220,39 +260,35 @@ class OrderViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-created_at')
 
     def perform_create(self, serializer):
-        product_id = self.request.data.get('product')
-        quantity = int(self.request.data.get('quantity', 1))
+        product = serializer.validated_data['product']
+        quantity = serializer.validated_data['quantity']
 
-        try:
-            product = Product.objects.get(id=product_id)
-        except Product.DoesNotExist:
-            raise ValidationError({"product": "Product does not exist."})
+        with transaction.atomic():
+            # Lock the product row so concurrent orders cannot oversell it.
+            product = Product.objects.select_for_update().get(pk=product.pk)
 
-        if product.quantity <= 0:
-            raise ValidationError({"error": "This product is out of stock."})
-        if product.quantity < quantity:
-            raise ValidationError({"error": "Insufficient stock for this order."})
+            if not product.is_active:
+                raise ValidationError({'error': 'This product is no longer available.'})
+            if product.quantity <= 0:
+                raise ValidationError({'error': 'This product is out of stock.'})
+            if product.quantity < quantity:
+                raise ValidationError({'error': 'Insufficient stock for this order.'})
 
-        listed = product.listed_price_per_unit or (product.base_price_per_unit * Decimal('1.20'))
-        buyer_total = listed * quantity * Decimal('1.08')
-        logistics_fee = product.base_price_per_unit * quantity * Decimal('0.20')
-        platform_fee = listed * quantity * Decimal('0.08')
-        farmer_earnings = product.base_price_per_unit * quantity * Decimal('0.92')
+            pricing = price_order(product.base_price_per_unit, quantity)
 
-        # Deduct stock immediately when order is placed
-        product.quantity -= quantity
-        product.save()
+            product.quantity -= quantity
+            product.save(update_fields=['quantity'])
 
-        serializer.save(
-            buyer=self.request.user,
-            farmer=product.farmer,
-            product=product,
-            total_price=buyer_total,
-            logistics_fee=logistics_fee,
-            platform_fee=platform_fee,
-            farmer_earnings=farmer_earnings,
-            status='pending'
-        )
+            serializer.save(
+                buyer=self.request.user,
+                farmer=product.farmer,
+                product=product,
+                total_price=pricing.buyer_total,
+                logistics_fee=pricing.logistics_fee,
+                platform_fee=pricing.platform_fee,
+                farmer_earnings=pricing.farmer_earnings,
+                status='pending',
+            )
 
 
 # ────────────────────────────────────────────────────────────

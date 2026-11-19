@@ -11,7 +11,18 @@ class UserSerializer(serializers.ModelSerializer):
             'buyer_type', 'farmer_delivery_time',
             'vehicle_type', 'is_driver_active', 'current_order',
         ]
-        read_only_fields = ['uid']
+        read_only_fields = ['uid', 'role', 'is_driver_active', 'current_order']
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    """Fields a user may change on their own profile. Role and driver state are admin-only."""
+
+    class Meta:
+        model = User
+        fields = [
+            'full_name', 'phone_number', 'country', 'city', 'market', 'bio', 'avatar',
+            'buyer_type', 'farmer_delivery_time', 'vehicle_type',
+        ]
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -64,7 +75,20 @@ class ProductSerializer(serializers.ModelSerializer):
             'delivery_time_manual', 'delivery_time_varies', 'images',
             'created_at', 'is_active'
         ]
-        read_only_fields = ['farmer', 'created_at', 'is_active']
+        read_only_fields = ['farmer', 'listed_price_per_unit', 'created_at', 'is_active']
+
+    def validate_base_price_per_unit(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Price must be greater than zero.')
+        return value
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        # Contact details are only for signed-in users (the catalogue is public).
+        if not (request and request.user and request.user.is_authenticated):
+            data['farmer_phone'] = None
+        return data
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -94,7 +118,15 @@ class OrderSerializer(serializers.ModelSerializer):
             'mock_payment_id', 'farmer_paid',
             'created_at'
         ]
-        read_only_fields = ['buyer', 'farmer', 'total_price', 'logistics_fee', 'platform_fee', 'farmer_earnings', 'created_at', 'driver']
+        read_only_fields = [
+            'buyer', 'farmer', 'driver', 'total_price', 'logistics_fee', 'platform_fee',
+            'farmer_earnings', 'status', 'mock_payment_id', 'farmer_paid', 'created_at',
+        ]
+
+    def validate_quantity(self, value):
+        if value < 1:
+            raise serializers.ValidationError('Quantity must be at least 1.')
+        return value
 
     def get_driver_name(self, obj):
         if obj.driver:
