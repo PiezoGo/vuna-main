@@ -128,7 +128,7 @@ class OrderSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Quantity must be at least 1.')
         return value
 
-    def get_driver_name(self, obj):
+    def get_driver_name(self, obj) -> str | None:
         if obj.driver:
             return obj.driver.full_name
         return None
@@ -148,12 +148,12 @@ class DriverSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['uid', 'current_order']
 
-    def get_current_order_id(self, obj):
+    def get_current_order_id(self, obj) -> int | None:
         if obj.current_order:
             return obj.current_order.id
         return None
 
-    def get_current_order_product(self, obj):
+    def get_current_order_product(self, obj) -> str | None:
         if obj.current_order:
             return obj.current_order.product.title
         return None

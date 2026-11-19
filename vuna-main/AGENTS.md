@@ -7,7 +7,7 @@ Guide for anyone (human or AI) working in this repo. Read this first, then the `
 A B2B farm-produce marketplace for Kenya. **Farmers** list produce, **buyers** (hotels, retailers, wholesalers) order it, **admins** assign **drivers**, and drivers deliver it.
 
 - Order lifecycle: `pending → paid → assigned → collected → in_transit → delivered → completed` (or `cancelled`).
-- Pricing: the farmer sets `base_price_per_unit`. The listed price is base + 20% logistics. The buyer pays listed + 8% platform fee. **The backend owns every price and fee calculation; clients only display what the API returns.**
+- Pricing: the farmer sets `base_price_per_unit`. The listed price is base + 20% logistics. The buyer pays the listed price × quantity (nothing on top). VUNA's 8% platform fee comes out of the farmer's share: the farmer earns 92% of base × quantity. See `backend/api/pricing.py`. **The backend owns every price and fee calculation; clients only display what the API returns.**
 - Payment: mock M-Pesa today. Daraja STK Push comes later, behind the `PaymentProvider` interface.
 
 ## Repository layout

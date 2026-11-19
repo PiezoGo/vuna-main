@@ -129,7 +129,7 @@ Each module: plan in `docs/modules/<name>.md` → your approval → build → li
 | 2 | **Auth** | Login, signup (farmer/buyer), logout, cookie session, middleware role guards, own profile page |
 | 3 | **Catalog** | Landing, `/market` with filters and search, product page (ISR, JSON-LD, gallery), farmer profile (login) |
 | 4 | **Cart** | Backend: checkout endpoint that creates one order per product line in one transaction, grouped under a `Checkout`. Web: cart store, cart page, mini-cart, quantity rules |
-| 5 | **Checkout + payment** | Checkout page with server-quoted totals (subtotal, 8% platform fee), phone number, mock payment via `PaymentProvider`, success and failure states; STK Push slot ready |
+| 5 | **Checkout + payment** | Checkout page with server-quoted totals (items, logistics included; no buyer-side fee), phone number, mock payment via `PaymentProvider`, success and failure states; STK Push slot ready |
 | 6 | **Orders + account** | Buyer order list and detail with status timeline, profile edit |
 | 7 | **Farmer dashboard** | Listings CRUD with Cloudinary uploads, incoming orders, earnings |
 | 8 | **Admin dashboard** | Paid orders → assign driver, all orders, complete order, drivers, users |

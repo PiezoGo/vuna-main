@@ -10,8 +10,11 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import extend_schema
 
 from .models import User, Product, Order, ChatMessage
+from . import schema
 from .permissions import IsAdmin, IsBuyer, IsDriver, IsFarmer, IsProductOwnerOrAdmin
 from .pricing import listed_price, price_order
 from .serializers import (
@@ -37,6 +40,7 @@ from .serializers import (
 class RegisterView(APIView):
     permission_classes = []
 
+    @extend_schema(request=RegisterSerializer, responses={201: schema.AuthResponse, 400: OpenApiTypes.OBJECT})
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
@@ -52,6 +56,7 @@ class RegisterView(APIView):
 class LoginView(APIView):
     permission_classes = []
 
+    @extend_schema(request=schema.LoginRequest, responses={200: schema.AuthResponse, 400: schema.ErrorResponse, 401: schema.ErrorResponse})
     def post(self, request):
         email = request.data.get('email')
         password = request.data.get('password')
@@ -72,6 +77,7 @@ class LoginView(APIView):
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(request=None, responses={200: schema.DetailResponse})
     def post(self, request):
         try:
             request.user.auth_token.delete()
@@ -86,9 +92,11 @@ class LogoutView(APIView):
 class ProfileUpdateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(operation_id='profile_me', responses=UserSerializer)
     def get(self, request):
         return Response(UserSerializer(request.user).data)
 
+    @extend_schema(operation_id='profile_me_update', request=ProfileUpdateSerializer, responses={200: UserSerializer, 400: OpenApiTypes.OBJECT})
     def put(self, request):
         user = request.user
         serializer = ProfileUpdateSerializer(user, data=request.data, partial=True)
@@ -101,6 +109,7 @@ class ProfileUpdateView(APIView):
 class PublicProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(operation_id='profile_public', responses={200: schema.PublicProfileResponse, 404: schema.ErrorResponse})
     def get(self, request, uid):
         try:
             user = User.objects.get(uid=uid)
@@ -242,6 +251,8 @@ class OrderViewSet(mixins.ListModelMixin,
         return [permissions.IsAuthenticated()]
 
     def get_queryset(self):
+        if getattr(self, 'swagger_fake_view', False):  # schema generation
+            return Order.objects.none()
         user = self.request.user
         queryset = Order.objects.select_related('product', 'buyer', 'farmer', 'driver')
 
@@ -297,6 +308,7 @@ class OrderViewSet(mixins.ListModelMixin,
 class MockPayView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(request=schema.MockPayRequest, responses={200: schema.MockPayResponse, 400: schema.ErrorResponse, 403: schema.ErrorResponse, 404: schema.ErrorResponse})
     def post(self, request, order_id):
         try:
             order = Order.objects.get(id=order_id)
@@ -331,11 +343,13 @@ class MockPayView(APIView):
 class AdminDriverManagementView(APIView):
     permission_classes = [IsAdmin]
 
+    @extend_schema(responses=DriverSerializer(many=True))
     def get(self, request):
         drivers = User.objects.filter(role='driver').order_by('-is_driver_active', 'full_name')
         serializer = DriverSerializer(drivers, many=True)
         return Response(serializer.data)
 
+    @extend_schema(request=schema.DriverCreateRequest, responses={201: DriverSerializer, 400: schema.ErrorResponse})
     def post(self, request):
         """Admin creates a new driver user."""
         full_name = request.data.get('full_name')
@@ -363,6 +377,7 @@ class AdminDriverManagementView(APIView):
 
         return Response(DriverSerializer(driver).data, status=status.HTTP_201_CREATED)
 
+    @extend_schema(request=schema.DriverIdRequest, responses={200: schema.DetailResponse, 404: schema.ErrorResponse})
     def delete(self, request):
         """Admin deactivates a driver."""
         driver_id = request.data.get('driver_id')
@@ -382,6 +397,7 @@ class AdminDriverManagementView(APIView):
 class AdminAssignDriverView(APIView):
     permission_classes = [IsAdmin]
 
+    @extend_schema(request=schema.AssignDriverRequest, responses={200: schema.OrderActionResponse, 400: schema.ErrorResponse, 404: schema.ErrorResponse})
     def post(self, request):
         order_id = request.data.get('order_id')
         driver_id = request.data.get('driver_id')
@@ -431,6 +447,7 @@ class AdminAssignDriverView(APIView):
 class AdminCompleteOrderView(APIView):
     permission_classes = [IsAdmin]
 
+    @extend_schema(request=schema.OrderIdRequest, responses={200: schema.OrderActionResponse, 400: schema.ErrorResponse, 404: schema.ErrorResponse})
     def post(self, request):
         order_id = request.data.get('order_id')
         if not order_id:
@@ -466,6 +483,7 @@ class AdminCompleteOrderView(APIView):
 class AdminAllOrdersView(APIView):
     permission_classes = [IsAdmin]
 
+    @extend_schema(parameters=[schema.STATUS_PARAM], responses=OrderSerializer(many=True))
     def get(self, request):
         queryset = Order.objects.all().order_by('-created_at')
 
@@ -480,6 +498,7 @@ class AdminAllOrdersView(APIView):
 class AdminUsersView(APIView):
     permission_classes = [IsAdmin]
 
+    @extend_schema(parameters=[schema.ROLE_PARAM], responses=UserSerializer(many=True))
     def get(self, request):
         users = User.objects.all().order_by('role', 'full_name')
         role_filter = request.query_params.get('role')
@@ -488,6 +507,7 @@ class AdminUsersView(APIView):
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
 
+    @extend_schema(request=schema.UserIdRequest, responses={200: schema.DetailResponse, 400: schema.ErrorResponse, 404: schema.ErrorResponse})
     def delete(self, request):
         user_id = request.data.get('user_id')
         if not user_id:
@@ -512,6 +532,7 @@ class AdminUsersView(APIView):
 class DriverOrderView(APIView):
     permission_classes = [IsDriver]
 
+    @extend_schema(responses=schema.DriverOrdersResponse)
     def get(self, request):
         driver = request.user
         current = None
@@ -539,6 +560,7 @@ class DriverUpdateStatusView(APIView):
         'in_transit': 'delivered',
     }
 
+    @extend_schema(request=schema.DriverStatusRequest, responses={200: schema.OrderActionResponse, 400: schema.ErrorResponse})
     def post(self, request):
         new_status = request.data.get('status')
         driver = request.user
@@ -584,6 +606,7 @@ class DriverUpdateStatusView(APIView):
 class FarmerEarningsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(responses={200: schema.FarmerEarningsResponse, 403: schema.ErrorResponse})
     def get(self, request):
         user = request.user
         if user.role != 'farmer':
@@ -606,6 +629,7 @@ class FarmerEarningsView(APIView):
 class ChatMessageView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(parameters=[schema.RECEIVER_PARAM], responses=ChatMessageSerializer(many=True))
     def get(self, request):
         receiver_id = request.query_params.get('receiver_id')
         if not receiver_id:
@@ -622,6 +646,7 @@ class ChatMessageView(APIView):
         serializer = ChatMessageSerializer(messages, many=True)
         return Response(serializer.data)
 
+    @extend_schema(request=schema.SendMessageRequest, responses={201: ChatMessageSerializer, 400: schema.ErrorResponse, 404: schema.ErrorResponse})
     def post(self, request):
         receiver_id = request.data.get('receiver_id')
         message_text = request.data.get('message')
@@ -646,6 +671,7 @@ class ChatMessageView(APIView):
 class ChatInboxView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(responses=schema.ChatInboxItems)
     def get(self, request):
         user = request.user
         sent_users = ChatMessage.objects.filter(sender=user).values_list('receiver_id', flat=True)

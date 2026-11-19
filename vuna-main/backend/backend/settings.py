@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
+    'drf_spectacular',
 
     # Local apps
     'api',
@@ -163,6 +164,22 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.MultiPartParser',
         'rest_framework.parsers.FormParser',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'VUNA API',
+    'DESCRIPTION': 'B2B farm-produce marketplace API (farmers, buyers, drivers, admins). '
+                   'Auth: `Authorization: Token <key>`.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': r'/api/',
+    'ENUM_NAME_OVERRIDES': {
+        'ProductUnitEnum': 'api.models.Product.UNIT_CHOICES',
+        'OrderStatusEnum': 'api.models.Order.STATUS_CHOICES',
+        'UserRoleEnum': 'api.models.User.ROLE_CHOICES',
+    },
 }
 
 # ── Internationalisation ──────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 # Module 0: Backend hardening
 
-Status: **plan, waiting for approval**. Branch `refine`. Only `backend/` changes (plus the root `.gitignore`).
+Status: **built 2026-11-19, waiting for review**. Branch `refine`. Only `backend/` changes (plus the root `.gitignore`).
 
 ## Why first
 The new web app needs a public product catalogue (SEO), a machine-readable API schema (generated types for web and Expo) and safe permissions. Today several endpoints let any signed-in user change data they don't own.
@@ -71,3 +71,21 @@ Cart `Checkout` model (module 4), quote endpoint (module 5), Channels/Redis (mod
 - [ ] Farmer A can't edit farmer B's product (403/404)
 - [ ] Legacy frontend on :5173 still logs in, lists products, places an order and pays (mock)
 - [ ] `/api/schema/` downloads; `/api/docs/` renders in DEBUG
+
+## Done (2026-11-19)
+
+Answers: the 8% platform fee comes **only from the farmer** (the buyer pays the listed price; the farmer earns 92% of base). Admins may moderate any product.
+
+Changes vs plan:
+- Used DRF's built-in `SearchFilter`/`OrderingFilter` plus explicit query params instead of adding `django-filter` (one less dependency, same behaviour).
+- `?my_listings=true` stays unpaginated so the legacy farmer dashboard shows every listing.
+- **Extra fix found while building:** `PUT /api/profile/` let any user change their own `role` (a buyer could make themselves admin). Profile updates now use `ProfileUpdateSerializer`; `role`, `is_driver_active` and `current_order` are read-only.
+- Order `status`, `mock_payment_id` and `farmer_paid` were writable on create; now read-only.
+- Product create/update no longer crashes (500) on a missing or invalid price; it returns a 400.
+
+Results: 23 tests pass, `spectacular --validate` 0 errors, `check --deploy` only warns about HSTS preload (intentional).
+
+Not done here (noted for later):
+- Admin-created drivers all get the password `driver123`. Fix in the Admin module (random password or invite flow).
+- Existing orders keep the fee values they were created with. Only new orders use the new pricing.
+- The legacy `frontend/` order and payment modals still *display* the old "+8% platform fee" maths, so the total they show is 8% higher than what's actually charged.
