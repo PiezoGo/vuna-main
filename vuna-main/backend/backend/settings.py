@@ -3,15 +3,34 @@ import cloudinary
 import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
 # ── Core ──────────────────────────────────────────────────────────────────────
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-me-in-production')
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+def env_bool(name, default=False):
+    return os.environ.get(name, str(default)).strip().lower() in ('1', 'true', 'yes', 'on')
 
-ALLOWED_HOSTS = ['*']
+
+def env_list(name, default=''):
+    return [item.strip() for item in os.environ.get(name, default).split(',') if item.strip()]
+
+
+def env_required(name, dev_fallback=None):
+    """Secrets must come from the environment. In DEBUG a harmless fallback is allowed."""
+    value = os.environ.get(name)
+    if value:
+        return value
+    if DEBUG and dev_fallback is not None:
+        return dev_fallback
+    raise ImproperlyConfigured(f'Missing required environment variable: {name}')
+
+
+DEBUG = env_bool('DEBUG', default=False)
+SECRET_KEY = env_required('SECRET_KEY', dev_fallback='django-insecure-local-dev-only')
+
+ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1' if DEBUG else '')
 render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
 if render_host:
     ALLOWED_HOSTS.append(render_host)
@@ -39,11 +58,11 @@ INSTALLED_APPS = [
 ]
 
 # ── Cloudinary ────────────────────────────────────────────────────────────────
-# Keys are shared with the mvp-living-the-charge project
+# Credentials come only from the environment (see .env.example). Never commit them.
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', 'dteql91nj'),
-    'API_KEY':    os.environ.get('CLOUDINARY_API_KEY',    '599629241417826'),
-    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET', 'bDhlVMrAJvOaX0fQh76QMeqxIP0'),
+    'CLOUD_NAME': env_required('CLOUDINARY_CLOUD_NAME', dev_fallback=''),
+    'API_KEY':    env_required('CLOUDINARY_API_KEY', dev_fallback=''),
+    'API_SECRET': env_required('CLOUDINARY_API_SECRET', dev_fallback=''),
 }
 
 cloudinary.config(
@@ -119,17 +138,15 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
-_client_url = os.environ.get('CLIENT_URL', 'http://localhost:5173')
-CORS_ALLOWED_ORIGINS = [
-    "https://vuna-main.vercel.app",  
-    "http://localhost:5173",
-]
-
-# Also allow credentials if using cookies/tokens
-CORS_ALLOW_CREDENTIALS = True
+# Browsers on these origins may call the API directly (legacy Vite app, local dev).
+# The new Next.js app calls Django server-side, so it does not need CORS.
+CORS_ALLOWED_ORIGINS = env_list(
+    'CORS_ALLOWED_ORIGINS',
+    'https://vuna-main.vercel.app,http://localhost:5173,http://localhost:3000',
+)
+_client_url = os.environ.get('CLIENT_URL', '').strip()
 if _client_url and _client_url not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(_client_url)
-
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 
@@ -153,6 +170,18 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Africa/Nairobi'
 USE_I18N = True
 USE_TZ = True
+
+# ── Production security ──────────────────────────────────────────────────────
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', default=True)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '3600'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
+    CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS')
 
 # ── Static & Media ───────────────────────────────────────────────────────────
 STATIC_URL = '/static/'
