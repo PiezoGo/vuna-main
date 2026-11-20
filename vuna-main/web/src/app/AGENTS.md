@@ -14,5 +14,7 @@ Files here are thin: they fetch data (Server Components) and compose components 
 Rules:
 - Every data-fetching segment has `loading.tsx` and `error.tsx`.
 - Public pages export `metadata`/`generateMetadata`. Product pages set `export const revalidate = 60`.
-- Role-gated pages are listed in `src/proxy.ts` (Next.js 16's name for middleware) and also check the role on the server.
+- Private areas are listed in `protectedAreas` in `src/config/routes.ts`; `src/proxy.ts` (Next.js 16's name for middleware) sends signed-out visitors to `/login?next=…`.
+- **Every private `page.tsx` calls `await requireUser(path, { roles })` itself**, not only its layout. Layouts and pages render in parallel, so a layout-only check still streams the page's content to the wrong user.
+- Public pages never read cookies (that would make them dynamic and uncacheable); the header loads the session on the client via `/api/auth/session`.
 - Route handlers in `api/` never return the auth token to the browser.

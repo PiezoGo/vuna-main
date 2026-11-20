@@ -52,7 +52,11 @@ async function proxy(request: NextRequest, { params }: Context): Promise<Respons
     const timedOut = error instanceof DOMException && error.name === "TimeoutError";
     console.error("[api/backend] upstream request failed", { url: upstream.pathname, error });
     return NextResponse.json(
-      { error: timedOut ? "The server took too long to respond." : "Can't reach the VUNA API right now." },
+      {
+        error: timedOut
+          ? "The server took too long to respond."
+          : "Can't reach the VUNA API right now.",
+      },
       { status: timedOut ? 504 : 502 },
     );
   }

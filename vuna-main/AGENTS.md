@@ -69,7 +69,7 @@ Use named exports everywhere except Next.js files that require default exports (
 1. Create `app/(group)/path/page.tsx` as a Server Component. Fetch with `lib/api` server functions.
 2. Add `loading.tsx` and `error.tsx` beside it (or rely on the group's if they fit).
 3. Export `metadata` (public) or `export const metadata = { robots: { index: false } }` (private).
-4. If it's role-restricted, add the path to the rules in `src/proxy.ts` (Next.js 16's renamed middleware) **and** check the role in the page (defence in depth).
+4. If it's private, add its prefix to `protectedAreas` in `config/routes.ts` (enforced by `src/proxy.ts`, Next.js 16's renamed middleware) **and** call `await requireUser(path, { roles })` at the top of the page itself. A layout check alone is not enough: layouts and pages render in parallel.
 5. Add it to `config/nav.ts` if it appears in navigation.
 
 ### Add a component

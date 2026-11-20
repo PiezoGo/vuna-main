@@ -6,6 +6,9 @@
   - `result.ts`: `unwrap(promise)` returns typed data or throws `ApiError`.
   - `proxy.ts`: pure helpers for the proxy route (URL allow-list, header filtering), unit-tested.
   - `session-cookie.ts`: the cookie name.
+  - `auth-client.ts`: browser calls to our `/api/auth/*` route handlers (login, register, logout, session).
+- `auth/`: `session.ts` (`getSession`, `requireUser`, `homeFor`), `cookie.ts` (set/clear the httpOnly cookie), `route-helpers.ts`.
+- `phone.ts`: Kenyan phone normalising and display, mirroring `backend/api/phone.py`.
   - `errors.ts`: `ApiError` with status and field errors parsed from DRF responses.
   - `endpoints/<domain>.ts`: typed functions (`getProducts`, `createOrder`…) using types from `@vuna/api`.
 - `mpesa/`: phone normalisation (`07…`/`+254…` → `2547…`), and STK helpers later. Server-only for anything secret.

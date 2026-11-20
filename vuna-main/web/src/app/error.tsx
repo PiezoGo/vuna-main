@@ -38,7 +38,7 @@ export default function ErrorPage({
           <RotateCcw /> Try again
         </Button>
         <Button variant="outline" asChild>
-          <Link href={route(routes.home)}>Go home</Link>
+          <Link href={route(routes.root)}>Go home</Link>
         </Button>
       </div>
     </main>

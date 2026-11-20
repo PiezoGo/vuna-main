@@ -11,7 +11,7 @@ export default function NotFound() {
       id="main"
       className="flex min-h-dvh flex-col items-center justify-center px-6 text-center"
     >
-      <Link href={route(routes.home)} aria-label="VUNA home">
+      <Link href={route(routes.root)} aria-label="VUNA home">
         <Logo />
       </Link>
       <div className="mt-12 flex size-14 items-center justify-center rounded-2xl bg-primary-soft text-primary">
@@ -24,7 +24,7 @@ export default function NotFound() {
       </p>
       <div className="mt-8 flex gap-3">
         <Button asChild>
-          <Link href={route(routes.home)}>Go home</Link>
+          <Link href={route(routes.root)}>Go home</Link>
         </Button>
         <Button variant="outline" asChild>
           <Link href={route(routes.market)}>Browse the market</Link>

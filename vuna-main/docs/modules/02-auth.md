@@ -1,6 +1,6 @@
 # Module 2: Accounts, sign-up and login
 
-Status: **plan, waiting for approval**. Branch `refine`. Part of Milestone 1 (live demo, Tue 24 Nov 2026).
+Status: **built 2026-11-20, waiting for review**. Branch `refine`. Part of Milestone 1 (live demo, Tue 24 Nov 2026).
 PRD stories: AC-1, AC-2, AC-3, AC-4 (section 6.1). Business rules: `docs/business-rules.md` §3.
 
 ## Goal
@@ -77,3 +77,25 @@ People can sign up, sign in and out, and land on the right home for their role. 
 - [ ] The browser's storage and page JavaScript never contain the token (cookie is httpOnly)
 - [ ] Sign out clears the cookie and the server token
 - [ ] Legacy site still logs in (existing farmers stay approved)
+
+## Done (2026-11-20)
+
+Answers used (all recommended defaults): email sign-in; Kiambu, Limuru and Naivasha clusters; one agent per farmer; 30-day sessions; rejected farmers see the reason.
+
+Results: backend 38 tests pass; web `lint`, `typecheck`, 24 unit tests and `build` pass. Public pages stay static.
+
+Checked by hand (dev servers, test accounts):
+- Sign-up as a buyer sets an httpOnly, SameSite=Lax cookie (30 days); no response body ever contains the token.
+- Signed-out `/farmer` → `/login?next=/farmer`, and back to `/farmer` after sign-in.
+- Signed-in users opening `/login` go to their home; `/home` sends each role to its home.
+- A buyer opening `/admin`, `/driver`, `/agent` or `/farmer` is redirected and receives none of that page's content.
+- Wrong password shows "Invalid credentials."; sign-out clears the cookie and the server token.
+- In the browser: a pending farmer sees the "Waiting for approval" banner; the admin approves them on `/admin/farmers`.
+
+Changes vs plan:
+- Every private page also calls `requireUser` itself (found during testing: a layout-only check still streamed the page's text to the wrong role).
+- The server API client unpacks openapi-fetch's `Request` into URL + init, because Next.js's patched `fetch` dropped POST bodies.
+- `typecheck` now runs `next typegen` first, so route types are never stale.
+- The legacy admin "add driver" endpoint now returns `login_email` and `one_time_password`; the legacy UI ignores them, so create drivers through the new API until Module 8.
+
+Not done here: forgot-password by SMS/email (admins issue a one-time password via `POST /api/admin/users/{uid}/reset-password/`), admin UI for creating drivers and agents (Module 8).
