@@ -1,18 +1,18 @@
 import Link from "next/link";
 
 import { Logo } from "@/components/brand/logo";
+import { HeaderAuth } from "@/components/layout/header-auth";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { NavLinks } from "@/components/layout/nav-links";
-import { Button } from "@/components/ui/button";
 import { route, routes } from "@/config/routes";
 
-/** Public site header. Signed-out state only for now; Module 2 adds the session menu. */
+/** Public site header. The session part loads on the client, so public pages stay static. */
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70">
       <div className="container-page flex h-16 items-center gap-6">
         <Link
-          href={route(routes.home)}
+          href={route(routes.root)}
           className="rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
           <Logo />
@@ -24,12 +24,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="ml-auto hidden items-center gap-2 md:flex">
-          <Button variant="ghost" asChild>
-            <Link href={route(routes.login)}>Sign in</Link>
-          </Button>
-          <Button asChild>
-            <Link href={route(routes.signup)}>Get started</Link>
-          </Button>
+          <HeaderAuth />
         </div>
 
         <MobileNav className="ml-auto md:hidden" />
