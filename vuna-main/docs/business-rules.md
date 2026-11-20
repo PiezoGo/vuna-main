@@ -111,7 +111,7 @@ The backend calculates all of this (`backend/api/pricing.py`). The website and a
 
 ## 3. Decisions from the PRD questions (2026-11-20) ✅
 
-- **Order flow:** buyer submits a cart → each farmer accepts or declines within 2 hours → buyer gets one M-Pesa prompt for the accepted lines and has 30 minutes to pay → admin puts paid lines on a daily trip → driver collects (photo + condition check) → delivered (photo) → buyer confirms, or auto-complete after 24 h. Full state table: PRD section 7.2.
+- **Order flow:** buyer submits a cart and chooses **Pay now** (one prompt for the whole cart; any line a farmer declines or that expires is refunded automatically) or **Pay after confirmation** (one prompt for the accepted lines once farmers answer, 30 minutes to pay). Each farmer accepts or declines within 2 hours (updated 2026-11-20: no forced accept-first) → admin puts paid lines on a daily trip → driver collects (photo + condition check) → delivered (photo) → buyer confirms, or auto-complete after 24 h. Full state table: PRD section 7.2.
 - **Logistics:** drivers are trained VUNA staff using their own vehicles and VUNA insulated bags. One driver per daily trip; a trip collects from several farmers and drops at several buyers. Farm-gate collection (no hubs yet). VUNA vehicles later.
 - **Farmer payout:** 92% of base value, by M-Pesa, within 4 hours of **collection**. Automatic B2C is the goal; until Safaricom production approval, an admin payout queue records manual sends.
 - **Accounts:** individual farmer accounts linked to a cooperative; field agents can list for linked farmers; farmers need admin approval; drivers/agents get one-time passwords.
@@ -122,5 +122,5 @@ The backend calculates all of this (`backend/api/pricing.py`). The website and a
 - **Ratings:** buyers rate farmers 1–5 after completion.
 - **Platform:** web first (installable web app), Android app later. Production hosting target: AWS.
 - **Delivery fee:** flat 20% for the MVP; a dynamic delivery-pricing algorithm is planned (next release, inputs open).
-- **First milestone:** live demo on Tue 24 Nov 2026 (sign-up, market, product pages, cart, farmer accept, simulated M-Pesa).
+- **First milestone (confirmed):** live demo on Tue 24 Nov 2026 (sign-up, market, product pages, cart, farmer accept, simulated M-Pesa). M-Pesa work uses the Daraja sandbox until production approval.
 - Deferred items live in the Claude Doc "VUNA Next Release Objectives" (https://claude.ai/artifact/TEfNaRxx2hzK9QoFnUfFfN).
