@@ -1,0 +1,6 @@
+frontend/
+backend/
+pnpm-lock.yaml
+**/.next/
+packages/api/src/schema.d.ts
+*.md
