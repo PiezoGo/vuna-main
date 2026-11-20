@@ -16,7 +16,8 @@ def make_user(role, **extra):
     return User.objects.create_user(
         email=email, username=email, password='Str0ng-pass!', full_name=f'{role.title()} {n}',
         role=role, phone_number=f'+2547000000{n:02d}', city=extra.pop('city', 'Nairobi'),
-        market=extra.pop('market', 'Wakulima'), **extra,
+        market=extra.pop('market', 'Wakulima'),
+        approval_status=extra.pop('approval_status', 'approved'), **extra,
     )
 
 

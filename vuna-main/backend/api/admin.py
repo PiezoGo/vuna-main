@@ -1,11 +1,11 @@
 from django.contrib import admin
-from .models import User, Product, Order, ChatMessage
+from .models import ChatMessage, Cooperative, Order, Product, User
 
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ['full_name', 'email', 'role', 'phone_number', 'city', 'is_driver_active']
-    list_filter = ['role', 'is_driver_active']
+    list_display = ['full_name', 'email', 'role', 'approval_status', 'phone_number', 'city', 'cooperative', 'is_driver_active']
+    list_filter = ['role', 'approval_status', 'cooperative', 'is_driver_active']
     search_fields = ['full_name', 'email', 'phone_number']
 
 
@@ -27,3 +27,10 @@ class OrderAdmin(admin.ModelAdmin):
 class ChatMessageAdmin(admin.ModelAdmin):
     list_display = ['sender', 'receiver', 'message', 'timestamp', 'is_read']
     list_filter = ['is_read']
+
+
+@admin.register(Cooperative)
+class CooperativeAdmin(admin.ModelAdmin):
+    list_display = ['name', 'county', 'is_active']
+    list_filter = ['is_active', 'county']
+    search_fields = ['name']

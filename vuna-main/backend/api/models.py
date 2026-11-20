@@ -3,12 +3,31 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 
+class Cooperative(models.Model):
+    """A farmer cooperative or cluster (e.g. Limuru). Managed by admins."""
+    name = models.CharField(max_length=120, unique=True)
+    county = models.CharField(max_length=100, blank=True, default='')
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class User(AbstractUser):
     ROLE_CHOICES = [
         ('farmer', 'Farmer'),
         ('buyer', 'Buyer'),
         ('admin', 'Admin'),
         ('driver', 'Driver'),
+        ('agent', 'Field agent'),
+    ]
+    APPROVAL_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
     ]
     MARKET_CHOICES = [
         ('Muthurwa', 'Muthurwa'),
@@ -34,6 +53,21 @@ class User(AbstractUser):
     bio = models.TextField(blank=True, default='')
     avatar = models.CharField(max_length=255, blank=True, default='')
 
+    # Approval: new farmers start 'pending'; every other role is 'approved'.
+    approval_status = models.CharField(max_length=10, choices=APPROVAL_CHOICES, default='approved')
+    rejection_reason = models.CharField(max_length=255, blank=True, default='')
+    # Set when an admin issues a one-time password; cleared when the user sets their own.
+    must_change_password = models.BooleanField(default=False)
+
+    # Farmer links
+    cooperative = models.ForeignKey(
+        Cooperative, on_delete=models.SET_NULL, null=True, blank=True, related_name='farmers'
+    )
+    agent = models.ForeignKey(
+        'self', on_delete=models.SET_NULL, null=True, blank=True, related_name='agent_farmers',
+        limit_choices_to={'role': 'agent'},
+    )
+
     # Buyer-specific fields
     buyer_type = models.CharField(max_length=20, choices=BUYER_TYPE_CHOICES, blank=True, null=True)
 
@@ -58,6 +92,10 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.full_name} ({self.role})"
+
+    @property
+    def is_approved(self):
+        return self.approval_status == 'approved'
 
     @property
     def is_available_driver(self):

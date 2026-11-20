@@ -1,8 +1,25 @@
+from django.contrib.auth import password_validation
 from rest_framework import serializers
-from .models import User, Product, Order, ChatMessage
+from .models import ChatMessage, Cooperative, Order, Product, User
+from .phone import normalize_ke_phone
+
+
+def validate_phone(value):
+    normalized = normalize_ke_phone(value)
+    if not normalized:
+        raise serializers.ValidationError('Enter a Kenyan mobile number, for example 0712 345 678.')
+    return normalized
+
+
+class CooperativeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cooperative
+        fields = ['id', 'name', 'county']
 
 
 class UserSerializer(serializers.ModelSerializer):
+    cooperative_name = serializers.CharField(source='cooperative.name', read_only=True, default=None)
+
     class Meta:
         model = User
         fields = [
@@ -10,8 +27,13 @@ class UserSerializer(serializers.ModelSerializer):
             'country', 'city', 'market', 'bio', 'avatar',
             'buyer_type', 'farmer_delivery_time',
             'vehicle_type', 'is_driver_active', 'current_order',
+            'approval_status', 'rejection_reason', 'must_change_password',
+            'cooperative', 'cooperative_name', 'agent',
         ]
-        read_only_fields = ['uid', 'role', 'is_driver_active', 'current_order']
+        read_only_fields = [
+            'uid', 'role', 'is_driver_active', 'current_order',
+            'approval_status', 'rejection_reason', 'must_change_password', 'agent',
+        ]
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
@@ -21,8 +43,11 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'full_name', 'phone_number', 'country', 'city', 'market', 'bio', 'avatar',
-            'buyer_type', 'farmer_delivery_time', 'vehicle_type',
+            'buyer_type', 'farmer_delivery_time', 'vehicle_type', 'cooperative',
         ]
+
+    def validate_phone_number(self, value):
+        return validate_phone(value)
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -33,8 +58,23 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = [
             'email', 'password', 'full_name', 'role', 'phone_number',
             'country', 'city', 'market',
-            'buyer_type', 'farmer_delivery_time',
+            'buyer_type', 'farmer_delivery_time', 'cooperative',
         ]
+        extra_kwargs = {'cooperative': {'required': False, 'allow_null': True}}
+
+    def validate_phone_number(self, value):
+        return validate_phone(value)
+
+    def validate_password(self, value):
+        password_validation.validate_password(value)
+        return value
+
+    def validate(self, attrs):
+        if attrs.get('role') == 'buyer' and not attrs.get('buyer_type'):
+            raise serializers.ValidationError({'buyer_type': 'Choose your business type.'})
+        if attrs.get('role') != 'farmer':
+            attrs.pop('cooperative', None)
+        return attrs
 
     def validate_role(self, value):
         # Public signup can only be farmer or buyer
@@ -55,6 +95,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             market=validated_data.get('market', ''),
             buyer_type=validated_data.get('buyer_type'),
             farmer_delivery_time=validated_data.get('farmer_delivery_time', ''),
+            cooperative=validated_data.get('cooperative'),
+            # New farmers wait for admin approval before their listings go live.
+            approval_status='pending' if validated_data['role'] == 'farmer' else 'approved',
         )
         return user
 
@@ -167,3 +210,53 @@ class ChatMessageSerializer(serializers.ModelSerializer):
         model = ChatMessage
         fields = ['id', 'sender', 'sender_name', 'receiver', 'receiver_name', 'message', 'timestamp', 'is_read']
         read_only_fields = ['sender', 'timestamp', 'is_read']
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_current_password(self, value):
+        if not self.context['request'].user.check_password(value):
+            raise serializers.ValidationError('Your current password is incorrect.')
+        return value
+
+    def validate(self, attrs):
+        if attrs['current_password'] == attrs['new_password']:
+            raise serializers.ValidationError({'new_password': 'Choose a password different from the current one.'})
+        password_validation.validate_password(attrs['new_password'], self.context['request'].user)
+        return attrs
+
+
+class StaffCreateSerializer(serializers.Serializer):
+    """Admin creates a driver or field agent; they sign in with a one-time password."""
+    role = serializers.ChoiceField(choices=['driver', 'agent'])
+    full_name = serializers.CharField(max_length=255)
+    phone_number = serializers.CharField(max_length=20)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    vehicle_type = serializers.CharField(max_length=100, required=False, allow_blank=True)
+
+    def validate_phone_number(self, value):
+        return validate_phone(value)
+
+    def validate_email(self, value):
+        if value and User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError('A user with this email already exists.')
+        return value
+
+
+class FarmerApprovalSerializer(serializers.ModelSerializer):
+    cooperative_name = serializers.CharField(source='cooperative.name', read_only=True, default=None)
+    listings = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'uid', 'full_name', 'email', 'phone_number', 'city', 'market',
+            'cooperative_name', 'approval_status', 'rejection_reason', 'date_joined', 'listings',
+        ]
+        read_only_fields = fields
+
+
+class RejectFarmerSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=255)
