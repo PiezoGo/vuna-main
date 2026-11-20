@@ -1,5 +1,14 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from .accounts import (
+    AdminFarmerApproveView,
+    AdminFarmerListView,
+    AdminFarmerRejectView,
+    AdminResetPasswordView,
+    AdminStaffCreateView,
+    ChangePasswordView,
+    CooperativeListView,
+)
 from .views import (
     RegisterView,
     LoginView,
@@ -30,6 +39,8 @@ urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', LoginView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
+    path('auth/change-password/', ChangePasswordView.as_view(), name='change_password'),
+    path('cooperatives/', CooperativeListView.as_view(), name='cooperatives'),
 
     # Profile
     path('profile/', ProfileUpdateView.as_view(), name='profile_update'),
@@ -44,6 +55,11 @@ urlpatterns = [
     path('admin/complete_order/', AdminCompleteOrderView.as_view(), name='admin_complete_order'),
     path('admin/orders/', AdminAllOrdersView.as_view(), name='admin_orders'),
     path('admin/users/', AdminUsersView.as_view(), name='admin_users'),
+    path('admin/users/<uuid:uid>/reset-password/', AdminResetPasswordView.as_view(), name='admin_reset_password'),
+    path('admin/staff/', AdminStaffCreateView.as_view(), name='admin_staff_create'),
+    path('admin/farmers/', AdminFarmerListView.as_view(), name='admin_farmers'),
+    path('admin/farmers/<uuid:uid>/approve/', AdminFarmerApproveView.as_view(), name='admin_farmer_approve'),
+    path('admin/farmers/<uuid:uid>/reject/', AdminFarmerRejectView.as_view(), name='admin_farmer_reject'),
 
     # Driver endpoints
     path('driver/orders/', DriverOrderView.as_view(), name='driver_orders'),

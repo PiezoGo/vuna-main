@@ -54,6 +54,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/farmers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_farmers_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/farmers/{uid}/approve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_farmers_approve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/farmers/{uid}/reject/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_farmers_reject_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/orders/": {
         parameters: {
             query?: never;
@@ -64,6 +112,23 @@ export interface paths {
         get: operations["admin_orders_list"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/staff/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Admin creates a driver or field agent and receives their one-time password once. */
+        post: operations["admin_staff_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -81,6 +146,56 @@ export interface paths {
         put?: never;
         post?: never;
         delete: operations["admin_users_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{uid}/reset-password/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Admin issues a new one-time password (the 'forgot password' path until SMS reset exists). */
+        post: operations["admin_users_reset_password_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/change-password/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["auth_change_password_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cooperatives/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Public list of cooperatives for the farmer sign-up form. */
+        get: operations["cooperatives_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -378,6 +493,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description * `pending` - Pending
+         *     * `approved` - Approved
+         *     * `rejected` - Rejected
+         * @enum {string}
+         */
+        ApprovalStatusEnum: "pending" | "approved" | "rejected";
         AssignDriverRequestRequest: {
             order_id: number;
             /** Format: uuid */
@@ -396,6 +518,10 @@ export interface components {
          * @enum {string}
          */
         BuyerTypeEnum: "hotel" | "retailer" | "wholesaler";
+        ChangePasswordRequest: {
+            current_password: string;
+            new_password: string;
+        };
         ChatInboxItem: {
             partner: components["schemas"]["User"];
             last_message: components["schemas"]["ChatMessage"];
@@ -412,6 +538,11 @@ export interface components {
             /** Format: date-time */
             readonly timestamp: string;
             readonly is_read: boolean;
+        };
+        Cooperative: {
+            readonly id: number;
+            name: string;
+            county?: string;
         };
         DetailResponse: {
             detail: string;
@@ -449,6 +580,22 @@ export interface components {
         DriverStatusRequestStatusEnum: "collected" | "in_transit" | "delivered";
         ErrorResponse: {
             error: string;
+        };
+        FarmerApproval: {
+            /** Format: uuid */
+            readonly uid: string;
+            readonly full_name: string;
+            /** Format: email */
+            readonly email: string;
+            readonly phone_number: string;
+            readonly city: string;
+            readonly market: string;
+            readonly cooperative_name: string;
+            readonly approval_status: components["schemas"]["ApprovalStatusEnum"];
+            readonly rejection_reason: string;
+            /** Format: date-time */
+            readonly date_joined: string;
+            readonly listings: number;
         };
         FarmerEarnings: {
             /** Format: double */
@@ -630,6 +777,7 @@ export interface components {
             buyer_type?: (components["schemas"]["BuyerTypeEnum"] | components["schemas"]["BlankEnum"] | components["schemas"]["NullEnum"]) | null;
             farmer_delivery_time?: string;
             vehicle_type?: string;
+            cooperative?: number | null;
         };
         PublicProfile: {
             /** Format: uuid */
@@ -649,6 +797,13 @@ export interface components {
             vehicle_type?: string;
             readonly is_driver_active: boolean;
             readonly current_order: number | null;
+            readonly approval_status: components["schemas"]["ApprovalStatusEnum"];
+            readonly rejection_reason: string;
+            readonly must_change_password: boolean;
+            cooperative?: number | null;
+            readonly cooperative_name: string;
+            /** Format: uuid */
+            readonly agent: string | null;
             products: components["schemas"]["Product"][];
             completed_sales: number;
             total_listings: number;
@@ -665,11 +820,36 @@ export interface components {
             market?: string;
             buyer_type?: (components["schemas"]["BuyerTypeEnum"] | components["schemas"]["BlankEnum"] | components["schemas"]["NullEnum"]) | null;
             farmer_delivery_time?: string;
+            cooperative?: number | null;
+        };
+        RejectFarmerRequest: {
+            reason: string;
         };
         SendMessageRequestRequest: {
             /** Format: uuid */
             receiver_id: string;
             message: string;
+        };
+        /** @description Admin creates a driver or field agent; they sign in with a one-time password. */
+        StaffCreateRequest: {
+            role: components["schemas"]["StaffCreateRoleEnum"];
+            full_name: string;
+            phone_number: string;
+            email?: string;
+            vehicle_type?: string;
+        };
+        /**
+         * @description * `driver` - driver
+         *     * `agent` - agent
+         * @enum {string}
+         */
+        StaffCreateRoleEnum: "driver" | "agent";
+        StaffCredentials: {
+            user: components["schemas"]["User"];
+            /** Format: email */
+            login_email: string;
+            /** @description Shown once. Give it to the person; it is not stored readably. */
+            one_time_password: string;
         };
         User: {
             /** Format: uuid */
@@ -689,15 +869,23 @@ export interface components {
             vehicle_type?: string;
             readonly is_driver_active: boolean;
             readonly current_order: number | null;
+            readonly approval_status: components["schemas"]["ApprovalStatusEnum"];
+            readonly rejection_reason: string;
+            readonly must_change_password: boolean;
+            cooperative?: number | null;
+            readonly cooperative_name: string;
+            /** Format: uuid */
+            readonly agent: string | null;
         };
         /**
          * @description * `farmer` - Farmer
          *     * `buyer` - Buyer
          *     * `admin` - Admin
          *     * `driver` - Driver
+         *     * `agent` - Field agent
          * @enum {string}
          */
-        UserRoleEnum: "farmer" | "buyer" | "admin" | "driver";
+        UserRoleEnum: "farmer" | "buyer" | "admin" | "driver" | "agent";
     };
     responses: never;
     parameters: never;
@@ -868,6 +1056,91 @@ export interface operations {
             };
         };
     };
+    admin_farmers_list: {
+        parameters: {
+            query?: {
+                status?: "approved" | "pending" | "rejected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmerApproval"][];
+                };
+            };
+        };
+    };
+    admin_farmers_approve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmerApproval"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    admin_farmers_reject_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectFarmerRequest"];
+                "multipart/form-data": components["schemas"]["RejectFarmerRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RejectFarmerRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmerApproval"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     admin_orders_list: {
         parameters: {
             query?: {
@@ -886,6 +1159,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Order"][];
+                };
+            };
+        };
+    };
+    admin_staff_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffCreateRequest"];
+                "multipart/form-data": components["schemas"]["StaffCreateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["StaffCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffCredentials"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
@@ -943,6 +1251,97 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    admin_users_reset_password_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffCredentials"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    auth_change_password_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+                "multipart/form-data": components["schemas"]["ChangePasswordRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    cooperatives_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cooperative"][];
                 };
             };
         };

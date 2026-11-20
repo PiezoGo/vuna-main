@@ -165,6 +165,11 @@ REST_FRAMEWORK = {
         'rest_framework.parsers.FormParser',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_THROTTLE_CLASSES': ['rest_framework.throttling.ScopedRateThrottle'],
+    'DEFAULT_THROTTLE_RATES': {
+        'login': os.environ.get('THROTTLE_LOGIN', '10/min'),
+        'register': os.environ.get('THROTTLE_REGISTER', '20/hour'),
+    },
 }
 
 SPECTACULAR_SETTINGS = {

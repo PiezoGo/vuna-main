@@ -15,6 +15,8 @@ from drf_spectacular.utils import extend_schema
 
 from .models import User, Product, Order, ChatMessage
 from . import schema
+from .accounts import issue_one_time_password
+from .phone import normalize_ke_phone
 from .permissions import IsAdmin, IsBuyer, IsDriver, IsFarmer, IsProductOwnerOrAdmin
 from .pricing import listed_price, price_order
 from .serializers import (
@@ -39,6 +41,7 @@ from .serializers import (
 # ────────────────────────────────────────────────────────────
 class RegisterView(APIView):
     permission_classes = []
+    throttle_scope = 'register'
 
     @extend_schema(request=RegisterSerializer, responses={201: schema.AuthResponse, 400: OpenApiTypes.OBJECT})
     def post(self, request):
@@ -55,6 +58,7 @@ class RegisterView(APIView):
 
 class LoginView(APIView):
     permission_classes = []
+    throttle_scope = 'login'
 
     @extend_schema(request=schema.LoginRequest, responses={200: schema.AuthResponse, 400: schema.ErrorResponse, 401: schema.ErrorResponse})
     def post(self, request):
@@ -170,8 +174,8 @@ class ProductViewSet(viewsets.ModelViewSet):
         if self._wants_my_listings():
             queryset = queryset.filter(farmer=self.request.user)
         elif self.action in ('list', 'retrieve'):
-            # Marketplace feed: only active listings
-            queryset = queryset.filter(is_active=True)
+            # Marketplace feed: only active listings from approved farmers
+            queryset = queryset.filter(is_active=True, farmer__approval_status='approved')
         # update/destroy: all products; ownership is checked per object
 
         params = self.request.query_params
@@ -362,20 +366,29 @@ class AdminDriverManagementView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Create driver user with a default password
-        email = f"driver_{uuid_lib.uuid4().hex[:6]}@vuna.co.ke"
+        normalized_phone = normalize_ke_phone(phone_number)
+        if not normalized_phone:
+            return Response({'error': 'Enter a Kenyan mobile number, for example 0712 345 678.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Drivers sign in with a one-time password and must set their own (no shared default).
+        email = f"driver_{uuid_lib.uuid4().hex[:8]}@vuna.co.ke"
         driver = User.objects.create_user(
             email=email,
             username=email,
-            password='driver123',
+            password=None,
             full_name=full_name,
             role='driver',
-            phone_number=phone_number,
+            phone_number=normalized_phone,
             vehicle_type=vehicle_type,
             is_driver_active=True,
         )
+        one_time_password = issue_one_time_password(driver)
 
-        return Response(DriverSerializer(driver).data, status=status.HTTP_201_CREATED)
+        return Response(
+            {**DriverSerializer(driver).data, 'login_email': email, 'one_time_password': one_time_password},
+            status=status.HTTP_201_CREATED,
+        )
 
     @extend_schema(request=schema.DriverIdRequest, responses={200: schema.DetailResponse, 404: schema.ErrorResponse})
     def delete(self, request):
