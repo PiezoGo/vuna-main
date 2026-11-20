@@ -111,7 +111,7 @@ src/
 ├── hooks/         # shared client hooks (useDebounce, useMediaQuery…)
 ├── types/         # app-only types (API types live in packages/api)
 ├── config/        # env (validated with Zod), site metadata, nav per role, fee constants for display only
-└── middleware.ts  # redirects for signed-out users and wrong roles
+└── proxy.ts       # (Next 16's renamed middleware) redirects for signed-out users and wrong roles
 ```
 
 **Rules (expanded in AGENTS.md):** Server Components by default, `"use client"` only for interactivity. No `fetch`/axios outside `lib/api`. Prices and fees always come from the API, never recalculated in the browser. Every route has `loading.tsx` and `error.tsx`. No secrets in `NEXT_PUBLIC_*`.
@@ -126,7 +126,7 @@ Each module: plan in `docs/modules/<name>.md` → your approval → build → li
 |---|---|---|
 | 0 | **Backend hardening** | Move Cloudinary/secret keys to env only (you rotate the key), untrack `db.sqlite3`, product owner permissions (only farmers create; only the owner edits/deletes), public read for active products, pagination + `django-filter`, drf-spectacular OpenAPI schema, CORS for the new domain, tests for permissions and fees |
 | 1 | **Foundation** | pnpm workspace, `web/` scaffold, Tailwind 4 theme, `components/ui`, Navbar/Footer/DashboardShell, env config, API client + proxy, `packages/api` type generation, ESLint + Prettier + type-check scripts |
-| 2 | **Auth** | Login, signup (farmer/buyer), logout, cookie session, middleware role guards, own profile page |
+| 2 | **Auth** | Login, signup (farmer/buyer), logout, cookie session, `proxy.ts` role guards, own profile page |
 | 3 | **Catalog** | Landing, `/market` with filters and search, product page (ISR, JSON-LD, gallery), farmer profile (login) |
 | 4 | **Cart** | Backend: checkout endpoint that creates one order per product line in one transaction, grouped under a `Checkout`. Web: cart store, cart page, mini-cart, quantity rules |
 | 5 | **Checkout + payment** | Checkout page with server-quoted totals (items, logistics included; no buyer-side fee), phone number, mock payment via `PaymentProvider`, success and failure states; STK Push slot ready |

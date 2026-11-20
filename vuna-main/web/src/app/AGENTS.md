@@ -14,5 +14,5 @@ Files here are thin: they fetch data (Server Components) and compose components 
 Rules:
 - Every data-fetching segment has `loading.tsx` and `error.tsx`.
 - Public pages export `metadata`/`generateMetadata`. Product pages set `export const revalidate = 60`.
-- Role-gated pages are listed in `src/middleware.ts` and also check the role on the server.
+- Role-gated pages are listed in `src/proxy.ts` (Next.js 16's name for middleware) and also check the role on the server.
 - Route handlers in `api/` never return the auth token to the browser.

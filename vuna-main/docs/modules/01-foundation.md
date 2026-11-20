@@ -1,6 +1,6 @@
 # Module 1: Foundation
 
-Status: **plan, waiting for approval**. Branch `refine` (local commits, no push until you say so).
+Status: **built 2026-11-20, waiting for review**. Branch `refine` (local commits, no push until you say so).
 
 ## Goal
 A running, empty-but-polished Next.js app in `web/`: the design system, layouts, typed API client and env config. Every later module builds on this without revisiting setup. No real features yet: no login, no products.
@@ -84,3 +84,27 @@ next, react, react-dom, typescript, tailwindcss 4, @tailwindcss/postcss, shadcn 
 - [ ] With `API_URL` missing, the build fails with a clear message
 - [ ] No secret appears in the browser bundle (checked by grepping `.next/static`)
 - [ ] Legacy `frontend/` and the backend still run unchanged
+
+## Done (2026-11-20)
+
+Answers: keep the brown, green for M-Pesa only, refine the "V" logo, light mode only. Heading font: Fraunces (recommended default), Inter for everything else.
+
+Results: `pnpm lint`, `pnpm typecheck`, `pnpm test` (17 unit tests) and `pnpm build` all pass.
+
+Checked by hand:
+- Home renders with the live listing count from Django (server → Django path works).
+- `/dev/ui` renders in dev and returns 404 in production; an unknown URL shows the branded 404.
+- At 375 px wide there is no horizontal scrolling and the header collapses to a menu.
+- Proxy: `GET /api/backend/api/products/` returns Django's data; JSON `POST` bodies arrive intact; `/api/backend/admin/...` and `..` traversal return 404; an unauthenticated `GET /api/orders/` returns 401.
+- Security headers are present, and no server URL, secret or cookie name appears in `.next/static`.
+- An invalid `API_URL` stops `dev`, `build` and `start` with a clear message.
+
+Changes vs plan:
+- TypeScript is pinned to 5.9. TypeScript 7 (the new native compiler) breaks `openapi-typescript`.
+- The proxy buffers request bodies instead of streaming them, because streamed bodies arrived empty at Django.
+- `skipTrailingSlashRedirect` is on, so Django-style URLs ending in `/` aren't redirected.
+- Env is validated in `next.config.ts`, so every command fails fast, not just requests.
+- Nav configs hold icon components, so client nav components import them directly instead of receiving them as props.
+- `route()` in `config/routes.ts` lets `<Link>` point at pages that later modules will create (typed routes).
+
+Not checked yet: keyboard walk-through of every `/dev/ui` component, and a visual review by you.

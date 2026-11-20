@@ -33,7 +33,7 @@ docs/        migration-plan.md (the overall plan) and modules/<nn>-<name>.md (on
 | Forms / validation | react-hook-form + Zod |
 | Auth | DRF token in an httpOnly cookie, set by `app/api/auth/*`; browser calls go through the `app/api/backend/[...path]` proxy |
 | Images | Cloudinary CDN via the custom `next/image` loader in `lib/cloudinary-loader.ts` |
-| Package manager | pnpm workspaces (Node 22 LTS) |
+| Package manager | pnpm workspaces (Node 22 LTS; 20.9+ works). TypeScript is pinned to 5.9: v7 breaks `openapi-typescript` |
 
 ## Coding standards
 
@@ -69,7 +69,7 @@ Use named exports everywhere except Next.js files that require default exports (
 1. Create `app/(group)/path/page.tsx` as a Server Component. Fetch with `lib/api` server functions.
 2. Add `loading.tsx` and `error.tsx` beside it (or rely on the group's if they fit).
 3. Export `metadata` (public) or `export const metadata = { robots: { index: false } }` (private).
-4. If it's role-restricted, add the path to the rules in `middleware.ts` **and** check the role in the page (defence in depth).
+4. If it's role-restricted, add the path to the rules in `src/proxy.ts` (Next.js 16's renamed middleware) **and** check the role in the page (defence in depth).
 5. Add it to `config/nav.ts` if it appears in navigation.
 
 ### Add a component
@@ -79,7 +79,7 @@ Use named exports everywhere except Next.js files that require default exports (
 
 ### Add an API call
 1. If the backend changed, regenerate types: `pnpm api:generate`.
-2. Add a typed function to `lib/api/endpoints/<domain>.ts` using the server fetcher (`serverApi`) or client fetcher (`clientApi`).
+2. Add a typed function to `lib/api/endpoints/<domain>.ts`. Server: `unwrap((await serverApi()).GET("/api/orders/"))`, or `publicApi()` for cacheable public data. Client: `unwrap(clientApi.GET("/api/orders/"))`. Paths match the OpenAPI schema (they start with `/api/`); `unwrap` returns typed data or throws an `ApiError`.
 3. For client use, wrap it in a TanStack Query hook in `features/<domain>/queries.ts` with keys from that feature's key factory.
 4. Never call the Django URL directly from the browser. Client calls go to `/api/backend/...`.
 
@@ -94,9 +94,11 @@ Run from the repo root unless noted.
 pnpm install                 # install all workspaces
 pnpm --filter web dev        # Next.js dev server (port 3000)
 pnpm --filter web lint       # ESLint
+pnpm --filter web test       # Vitest unit tests
 pnpm --filter web typecheck  # tsc --noEmit
 pnpm --filter web build      # production build
-pnpm api:generate            # regenerate packages/api types from the Django schema
+pnpm api:generate            # regenerate packages/api types (Django must be running on :8000,
+                             # or set VUNA_SCHEMA_URL)
 ```
 
 Backend (from `backend/`):
