@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
+  UserCheck,
   ClipboardList,
   LayoutDashboard,
   MessageSquare,
@@ -47,8 +48,13 @@ export const dashboardNav: Record<Role, NavItem[]> = {
   ],
   admin: [
     { title: "Overview", href: "/admin", icon: BarChart3 },
+    { title: "Farmer approvals", href: "/admin/farmers", icon: UserCheck },
     { title: "Orders", href: "/admin/orders", icon: ClipboardList },
     { title: "Drivers", href: "/admin/drivers", icon: Truck },
     { title: "Users", href: "/admin/users", icon: Users },
+  ],
+  agent: [
+    { title: "My farmers", href: "/agent", icon: Users },
+    { title: "Listings", href: "/agent/listings", icon: Package },
   ],
 };

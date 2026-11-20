@@ -8,11 +8,21 @@ import { SESSION_COOKIE } from "@/lib/api/session-cookie";
 
 const TIMEOUT_MS = 15_000;
 
-const fetchWithTimeout: typeof fetch = (input, init) => {
-  const signals = [AbortSignal.timeout(TIMEOUT_MS)];
+/**
+ * openapi-fetch hands us a Request object. Next.js's patched fetch can drop the body of a
+ * Request passed together with an init object, so we unpack it into a plain URL + init.
+ */
+const fetchWithTimeout: typeof fetch = async (input, init) => {
+  const request = input instanceof Request ? input : new Request(input, init);
+  const hasBody = request.method !== "GET" && request.method !== "HEAD";
+  const signals = [AbortSignal.timeout(TIMEOUT_MS), request.signal];
   if (init?.signal) signals.push(init.signal);
-  else if (input instanceof Request) signals.push(input.signal);
-  return fetch(input, { ...init, signal: AbortSignal.any(signals) });
+  return fetch(request.url, {
+    method: request.method,
+    headers: request.headers,
+    body: hasBody ? await request.arrayBuffer() : undefined,
+    signal: AbortSignal.any(signals),
+  });
 };
 
 /**
