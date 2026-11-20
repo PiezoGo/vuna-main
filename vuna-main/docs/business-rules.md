@@ -2,7 +2,9 @@
 
 The single place for **how VUNA works as a business**. Code and module plans must follow this file. When a rule changes, update this file in the same commit.
 
-Status: ✅ confirmed by Nguru · ❓ open (a suggested default is given; answer "default" to accept it)
+Status: ✅ confirmed · ❓ open
+
+> **Superseded in part on 2026-11-20 by the PRD** (Claude Doc "VUNA Product Requirements Document (PRD) v1", https://claude.ai/artifact/EmYdMLFhfg4jrpuRgxtCt1). Section 3 below records the decisions; where it disagrees with section 2, section 3 wins.
 
 ---
 
@@ -104,3 +106,21 @@ The backend calculates all of this (`backend/api/pricing.py`). The website and a
     *Default:* Nairobi and its surrounding counties (Kiambu, Machakos, Kajiado) for delivery; farmers can be anywhere in Kenya.
 22. **Units:** kg, sack, piece, bunch and litre today. Are sacks a standard size?
     *Default:* keep these units, and let the farmer state the sack size in the description (e.g. "90 kg bag").
+
+---
+
+## 3. Decisions from the PRD questions (2026-11-20) ✅
+
+- **Order flow:** buyer submits a cart → each farmer accepts or declines within 2 hours → buyer gets one M-Pesa prompt for the accepted lines and has 30 minutes to pay → admin puts paid lines on a daily trip → driver collects (photo + condition check) → delivered (photo) → buyer confirms, or auto-complete after 24 h. Full state table: PRD section 7.2.
+- **Logistics:** drivers are trained VUNA staff using their own vehicles and VUNA insulated bags. One driver per daily trip; a trip collects from several farmers and drops at several buyers. Farm-gate collection (no hubs yet). VUNA vehicles later.
+- **Farmer payout:** 92% of base value, by M-Pesa, within 4 hours of **collection**. Automatic B2C is the goal; until Safaricom production approval, an admin payout queue records manual sends.
+- **Accounts:** individual farmer accounts linked to a cooperative; field agents can list for linked farmers; farmers need admin approval; drivers/agents get one-time passwords.
+- **Buyers:** B2B only; one login per business; saved delivery addresses + delivery date (tomorrow or later).
+- **Notifications:** in-app plus SMS and WhatsApp for key events; email receipts.
+- **Communication:** chat and audio/video calls (calls only between parties to an order).
+- **Quality:** buyer reports problems within 24 h with a photo; admin decides refund; farmer-fault refunds come out of the next payout.
+- **Ratings:** buyers rate farmers 1–5 after completion.
+- **Platform:** web first (installable web app), Android app later. Production hosting target: AWS.
+- **Delivery fee:** flat 20% for the MVP; a dynamic delivery-pricing algorithm is planned (next release, inputs open).
+- **First milestone:** live demo on Tue 24 Nov 2026 (sign-up, market, product pages, cart, farmer accept, simulated M-Pesa).
+- Deferred items live in the Claude Doc "VUNA Next Release Objectives" (https://claude.ai/artifact/TEfNaRxx2hzK9QoFnUfFfN).
