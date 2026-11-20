@@ -1,0 +1,128 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * VUNA design tokens.
+ * Brand: earthy brown (soil, sacks, harvest) on a warm off-white.
+ * Green is reserved for success states and M-Pesa.
+ * Light mode only for now; dark values can be added under a .dark selector later.
+ */
+:root {
+  --radius: 0.75rem;
+
+  --background: #faf8f5;
+  --foreground: #1c1917;
+
+  --card: #ffffff;
+  --card-foreground: #1c1917;
+  --popover: #ffffff;
+  --popover-foreground: #1c1917;
+
+  --primary: #8b5a2b;
+  --primary-foreground: #ffffff;
+  --primary-hover: #704822;
+  --primary-soft: #f3efe9;
+
+  --secondary: #f3efe9;
+  --secondary-foreground: #3f2a14;
+
+  --muted: #f2eee8;
+  --muted-foreground: #6b625a;
+
+  --accent: #f3efe9;
+  --accent-foreground: #3f2a14;
+
+  --success: #15803d;
+  --success-foreground: #ffffff;
+  --success-soft: #ecfdf3;
+
+  /* M-Pesa brand green, used only for payment UI */
+  --mpesa: #00a650;
+  --mpesa-hover: #008c44;
+  --mpesa-foreground: #ffffff;
+
+  --warning: #b45309;
+  --warning-soft: #fff7ed;
+
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: #fef2f2;
+
+  --border: #e7e1d8;
+  --input: #e2dbd1;
+  --ring: #a67343;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-mpesa: var(--mpesa);
+  --color-mpesa-hover: var(--mpesa-hover);
+  --color-mpesa-foreground: var(--mpesa-foreground);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  --shadow-soft: 0 1px 2px rgb(28 25 23 / 0.04), 0 4px 16px -4px rgb(28 25 23 / 0.08);
+  --shadow-lift: 0 2px 4px rgb(28 25 23 / 0.04), 0 12px 32px -8px rgb(28 25 23 / 0.14);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply tracking-tight text-balance;
+  }
+
+  ::selection {
+    @apply bg-primary/15;
+  }
+}
+
+@utility container-page {
+  @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+}
