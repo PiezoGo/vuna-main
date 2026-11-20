@@ -17,7 +17,7 @@ backend/     Django 6 + DRF API (token auth, Cloudinary media, Postgres on Rende
 web/         NEW Next.js app (App Router, TypeScript). All new frontend work goes here
 packages/api Generated OpenAPI types + typed endpoint functions, shared by web/ and the future Expo app
 frontend/    LEGACY React + Vite app. Read-only reference. Do not edit or delete until cut-over is approved
-docs/        migration-plan.md (the overall plan) and modules/<nn>-<name>.md (one plan per module)
+docs/        business-rules.md (how VUNA works: read before any feature), migration-plan.md, modules/<nn>-<name>.md
 ```
 
 ## Stack (web/)
