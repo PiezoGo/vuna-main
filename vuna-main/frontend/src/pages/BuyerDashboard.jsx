@@ -179,10 +179,10 @@ function PlaceOrderModal({ product, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Display-only estimate: the buyer pays the listed price (delivery included).
+  // The backend calculates the real total when the order is created.
   const listedPrice = Number(product.listed_price_per_unit || 0);
-  const baseTotal = quantity * listedPrice;
-  const platformFee = baseTotal * 0.08;
-  const total = baseTotal + platformFee;
+  const total = quantity * listedPrice;
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -225,12 +225,8 @@ function PlaceOrderModal({ product, onClose, onSuccess }) {
 
         <div className="bg-primary/5 rounded-xl p-4 mb-4 space-y-2 text-sm">
           <div className="flex justify-between items-center text-gray-600">
-            <span>Subtotal ({quantity} {product.unit})</span>
-            <span>KSh {baseTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-          </div>
-          <div className="flex justify-between items-center text-gray-600">
-            <span>Platform Fee (8%)</span>
-            <span>KSh {platformFee.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+            <span>{quantity} {product.unit} × KSh {listedPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+            <span>Delivery included</span>
           </div>
           <div className="pt-2 border-t border-primary/10 flex justify-between items-center">
             <span className="font-medium text-gray-900">Total</span>
