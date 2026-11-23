@@ -49,9 +49,6 @@ export const protectedAreas: { prefix: string; roles?: Role[] }[] = [
   { prefix: "/farmers" },
 ];
 
-/** Pages for signed-out visitors only. */
-export const guestOnly = ["/login", "/signup"];
-
 /** Only same-site relative paths are allowed as a post-login destination. */
 export function safeNext(next: string | null | undefined): string | null {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\"))

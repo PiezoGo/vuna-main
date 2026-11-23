@@ -1,13 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { guestOnly, protectedAreas, routes } from "@/config/routes";
+import { protectedAreas, routes } from "@/config/routes";
 import { SESSION_COOKIE } from "@/lib/api/session-cookie";
 
 /**
  * Next.js 16 request proxy (formerly middleware.ts). A fast first check on the cookie only:
- * signed-out visitors are sent to /login, signed-in users skip /login and /signup.
- * Roles and token validity are checked again on the server by each area's layout
- * (requireUser), because a cookie's presence proves nothing by itself.
+ * visitors without a session cookie are sent to /login. It never redirects *because* a
+ * cookie exists: the cookie may be stale (token deleted, database reset), and treating it
+ * as proof caused a /login ⇄ /home loop. Token validity and roles are checked on the server
+ * by requireUser in every private page.
  */
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -20,13 +21,6 @@ export function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = routes.login;
     url.search = `?next=${encodeURIComponent(pathname + search)}`;
-    return NextResponse.redirect(url);
-  }
-
-  if (signedIn && guestOnly.includes(pathname)) {
-    const url = request.nextUrl.clone();
-    url.pathname = routes.home;
-    url.search = "";
     return NextResponse.redirect(url);
   }
 

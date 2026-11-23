@@ -44,7 +44,12 @@ export async function requireUser(
 ): Promise<User> {
   const user = await getSession();
   if (!user) {
-    redirect(`${routes.login}?next=${encodeURIComponent(currentPath)}` as Route);
+    const next = encodeURIComponent(currentPath);
+    const hasCookie = Boolean((await cookies()).get(SESSION_COOKIE)?.value);
+    // A cookie whose token no longer works must be removed, or sign-in pages keep seeing it.
+    redirect(
+      (hasCookie ? `/api/auth/clear?next=${next}` : `${routes.login}?next=${next}`) as Route,
+    );
   }
   if (user.must_change_password && !options.allowPendingPasswordChange) {
     redirect(routes.changePassword as Route);

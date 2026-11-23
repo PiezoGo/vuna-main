@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Route } from "next";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { useForm } from "react-hook-form";
@@ -14,7 +15,7 @@ import { Field, fieldDescribedBy } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { roleHome, routes, safeNext } from "@/config/routes";
 import { applyApiErrors } from "@/features/auth/form-errors";
-import { authKeys } from "@/features/auth/queries";
+import { authKeys, useSession } from "@/features/auth/queries";
 import { loginSchema, type LoginValues } from "@/features/auth/schemas";
 import { authClient } from "@/lib/api/auth-client";
 import { isRole } from "@/types/auth";
@@ -34,6 +35,8 @@ export function LoginForm() {
     defaultValues: { email: "", password: "" },
   });
 
+  const { data: current } = useSession();
+
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     try {
@@ -51,6 +54,18 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} noValidate className="grid gap-5">
+      {current ? (
+        <p className="rounded-xl bg-primary-soft px-4 py-3 text-sm">
+          You&apos;re already signed in as <span className="font-medium">{current.full_name}</span>.{" "}
+          <Link
+            href={(isRole(current.role) ? roleHome[current.role] : routes.root) as Route}
+            className="font-semibold text-primary hover:underline"
+          >
+            Continue
+          </Link>{" "}
+          or sign in with another account below.
+        </p>
+      ) : null}
       <FormAlert message={formError} />
       <Field htmlFor="email" label="Email" error={errors.email?.message}>
         <Input
