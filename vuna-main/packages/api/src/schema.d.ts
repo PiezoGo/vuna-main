@@ -1712,6 +1712,16 @@ export interface operations {
     products_list: {
         parameters: {
             query?: {
+                /** @description Farmer's city contains (case-insensitive) */
+                city?: string;
+                /** @description Commodity contains (case-insensitive) */
+                commodity?: string;
+                /** @description Exact harvest date, YYYY-MM-DD */
+                harvest_date?: string;
+                /** @description Farmer's market, exact (case-insensitive) */
+                market?: string;
+                /** @description 'true' = the signed-in farmer's own listings, unpaginated */
+                my_listings?: string;
                 /** @description Which field to use when ordering the results. */
                 ordering?: string;
                 /** @description A page number within the paginated result set. */

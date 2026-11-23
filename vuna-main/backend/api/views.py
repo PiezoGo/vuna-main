@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
 
 from .models import User, Product, Order, ChatMessage
 from . import schema
@@ -148,6 +148,13 @@ class ProductPagination(PageNumberPagination):
     max_page_size = 100
 
 
+@extend_schema_view(list=extend_schema(parameters=[
+    OpenApiParameter('commodity', str, description='Commodity contains (case-insensitive)'),
+    OpenApiParameter('city', str, description="Farmer's city contains (case-insensitive)"),
+    OpenApiParameter('market', str, description="Farmer's market, exact (case-insensitive)"),
+    OpenApiParameter('harvest_date', str, description='Exact harvest date, YYYY-MM-DD'),
+    OpenApiParameter('my_listings', str, description="'true' = the signed-in farmer's own listings, unpaginated"),
+]))
 class ProductViewSet(viewsets.ModelViewSet):
     """
     Public catalogue (list/retrieve) plus farmer-owned listing management.
