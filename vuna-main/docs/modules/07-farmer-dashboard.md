@@ -1,6 +1,6 @@
 # Module 7: Farmer dashboard (and field agents)
 
-Status: **plan, waiting for approval**. Branch `refine`. PRD stories: FRM-1, FRM-2 (done in Module 4), FRM-3, AC-4.
+Status: **built 2026-11-23, waiting for review**. Branch `refine`. PRD stories: FRM-1, FRM-2 (done in Module 4), FRM-3, AC-4.
 
 ## Goal
 Farmers manage their own produce on the new site: add, edit, pause and remove listings with photos, see orders and what they've earned. Field agents do the same for the farmers linked to them. After this, nobody needs Django admin or the old site to list produce.
@@ -43,3 +43,19 @@ Automatic payouts (needs the driver pickup step, Module 9), ratings, chat.
 - [ ] Earnings and overview numbers match the orders
 - [ ] Agent sees only linked farmers and can list for them; can't touch others
 - [ ] Deploys on Vercel and Render (photo upload works through the live proxy)
+
+## Done (2026-11-23)
+
+Answers used: up to 3 photos; existing orders keep their price; field-agent pages included.
+
+Results: backend 76 tests pass (9 new); web lint, type-check, unit tests and production build pass.
+
+Checked by hand (production build, local test farmer):
+- Through the website: add a listing (buyers see KSh 30.00 for a KSh 25.00 price; farmer receives KSh 23.00), pause (gone from the market), show again; every farmer page loads.
+- In the browser: filled the form with a 4000×3000 photo; it arrived on Cloudinary as a 1600×1200 JPEG (shrunk on the device) and the listing went live.
+
+Found and fixed while testing: listings created with photos (multipart forms) started **paused**, because a form that omits `is_active` was read as "false". `is_active` now defaults to true. Listings created from the old site's farmer dashboard since this morning's deploy may be paused for the same reason: farmers can press **Show** on them.
+
+Notes:
+- The "Remove" button asks for confirmation with the browser's own dialog; a styled dialog can come later.
+- Two test photos were uploaded to your Cloudinary account during testing (`product_images/4_…` and `5_…`); delete them there if you like.
