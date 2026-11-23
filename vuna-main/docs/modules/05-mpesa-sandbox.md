@@ -1,6 +1,6 @@
 # Module 5: M-Pesa STK Push (Daraja sandbox)
 
-Status: **plan, waiting for approval**. Branch `refine`. PRD stories: PAY-1 (real prompt), PAY-3 (refund records). Business rules: `docs/business-rules.md` §3.
+Status: **built 2026-11-23, waiting for review**. Branch `refine`. PRD stories: PAY-1 (real prompt), PAY-3 (refund records). Business rules: `docs/business-rules.md` §3.
 
 ## Goal
 Replace the simulated payment with a real M-Pesa Express (STK Push) request on Safaricom's **sandbox**: the buyer gets a prompt on their phone, Safaricom calls our backend back, and the order is marked paid only when Safaricom confirms. Switching to live later is a change of environment settings, not code.
@@ -41,3 +41,17 @@ For local testing I use the simulated mode, so nothing above blocks building.
 ## Open questions (my recommendation in brackets)
 1. Let buyers pay from a different phone than their account phone? [Yes, pre-filled and editable]
 2. Amounts with cents (e.g. KSh 1,200.50): M-Pesa only takes whole shillings. Round up the charge? [Yes, and show the rounded amount before sending]
+
+## Done (2026-11-23)
+
+Answers: buyers can pay from another phone (pre-filled, editable); cents are rounded up to whole shillings and the rounded amount is shown before sending.
+
+Results: backend 65 tests pass (10 new, with Daraja mocked: request shape, rounding, chosen phone, no duplicate prompts, success callback applied once, cancelled prompt and retry, wrong token, unknown request, short amount, Daraja errors, status query fallback, privacy). Web lint, type-check, unit tests and build pass.
+
+How it behaves:
+- `MPESA_ENV` unset → simulated: the prompt "succeeds" at once (local development, tests).
+- `MPESA_ENV=sandbox` → real STK Push to the sandbox. The callback URL is `https://<render-host>/api/payments/mpesa/callback/<MPESA_CALLBACK_TOKEN>/`; the backend's public address comes from Render's `RENDER_EXTERNAL_URL` automatically.
+- If no callback arrives within 45 s, the status poll asks Safaricom; after 3 minutes with no answer the prompt is marked failed and the buyer can try again.
+- A payment that lands after an item was declined or expired marks that item paid **and refunded**, so an admin can return the money by hand (automatic reversals are later).
+
+Not tested here: a real sandbox round trip (needs your Daraja keys on Render and a public callback URL). Test it right after deploying: place an order, tap "Send payment request", approve on the phone.

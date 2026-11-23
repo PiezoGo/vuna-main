@@ -28,6 +28,11 @@ Use your existing Render web service (it already has the Postgres database) or c
 | `CSRF_TRUSTED_ORIGINS` | `https://<your-render-service>.onrender.com` (for the Django admin) |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | From step 1 |
 | `PYTHON_VERSION` | `3.13.0` |
+| `MPESA_ENV` | `sandbox` (leave unset for simulated test payments) |
+| `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET` | From your Daraja app |
+| `MPESA_SHORTCODE` | `174379` (sandbox) |
+| `MPESA_PASSKEY` | From Daraja's M-Pesa Express test credentials |
+| `MPESA_CALLBACK_TOKEN` | A long random string: `python -c "import secrets; print(secrets.token_urlsafe(32))"` |
 
 **After the first deploy**
 - Open `https://<your-render-service>.onrender.com/api/products/facets/`: it should return JSON.

@@ -70,15 +70,27 @@ export function useCheckout(id: number) {
   });
 }
 
-export function usePayCheckout(id: number) {
-  const queryClient = useQueryClient();
+/** Sends the M-Pesa prompt for whatever is payable now. Returns the payment to poll. */
+export function useStartPayment(checkoutId: number) {
   return useMutation({
-    mutationFn: () =>
-      unwrap(clientApi.POST("/api/checkouts/{id}/pay/", { params: { path: { id } } })),
-    onSuccess: (data) => {
-      queryClient.setQueryData(checkoutKeys.checkout(id), data);
-      return queryClient.invalidateQueries({ queryKey: checkoutKeys.checkouts });
-    },
+    mutationFn: (phone: string) =>
+      unwrap(
+        clientApi.POST("/api/checkouts/{id}/pay/", {
+          params: { path: { id: checkoutId } },
+          body: { phone },
+        }),
+      ),
+  });
+}
+
+/** Polls a payment every 3 s while the prompt is open on the buyer's phone. */
+export function usePayment(paymentId: number | null) {
+  return useQuery({
+    queryKey: ["payments", paymentId],
+    queryFn: () =>
+      unwrap(clientApi.GET("/api/payments/{id}/", { params: { path: { id: paymentId ?? 0 } } })),
+    enabled: paymentId !== null,
+    refetchInterval: (query) => (query.state.data?.status === "requested" ? 3000 : false),
   });
 }
 
