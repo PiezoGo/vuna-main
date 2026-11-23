@@ -1,6 +1,6 @@
 # Module 3: Landing page, market and product pages
 
-Status: **plan, waiting for approval**. Branch `refine`. Part of Milestone 1 (live demo, Tue 24 Nov 2026).
+Status: **built 2026-11-23, waiting for review**. Branch `refine`. Part of Milestone 1 (live demo, Tue 24 Nov 2026).
 PRD stories: CAT-1, CAT-2 (section 6.2). Depends on Module 2 (approved farmers only).
 
 ## Goal
@@ -54,3 +54,22 @@ Cart, checkout and the farmer's accept/decline (Module 4); farmer listing manage
 - [ ] Phone width (375 px): no sideways scrolling; filters open in a sheet
 - [ ] Market page shows content within 3 s on simulated slow 3G (PRD section 8)
 - [ ] `sitemap.xml` lists products; a product link shared on WhatsApp shows a preview image
+
+## Done (2026-11-23)
+
+Answers: product URLs carry the name (`/products/2-potatoes`); stock is shown; **no demo data** (the team is deploying for real), so `seed_demo` was not built.
+
+Results: backend 43 tests pass; web lint, type-check, 31 unit tests and the production build pass.
+
+Checked by hand (production build on :3000, Django on :8000):
+- `/`, `/market` (with filters), `/about`, `/team`, `/terms`, `/sitemap.xml` return 200; the sitemap lists every live product.
+- `/products/2` and `/products/2-wrong-name` redirect permanently to `/products/2-potatoes`; an unknown product returns 404.
+- Product pages include structured data and a preview image, show "20 sacks available", and contain no phone number when signed out.
+- `/farmers/…` sends signed-out visitors to sign in.
+- Market at 375 px wide: no sideways scrolling; photos load from Django media in development.
+
+Changes vs plan:
+- Filters are a responsive grid instead of a slide-out sheet (simpler, works the same on phones).
+- Data migration `0006` fills in the listed price for older products that were saved without one (one live product showed "Price on request").
+- `initials()` moved to `lib/initials.ts` (it can't live in a client-only file used by server pages).
+- Terms page is a **draft**; legal review and a privacy policy are still needed before the pilot (PRD Q8).
