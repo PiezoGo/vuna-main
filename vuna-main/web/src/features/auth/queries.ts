@@ -5,6 +5,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 
 import { routes } from "@/config/routes";
+import { useCart } from "@/features/cart/store";
 import { authClient } from "@/lib/api/auth-client";
 
 export const authKeys = {
@@ -26,6 +27,8 @@ export function useLogout() {
   return useMutation({
     mutationFn: authClient.logout,
     onSettled: () => {
+      // The cart belongs to whoever is signed in on this device.
+      useCart.getState().clear();
       queryClient.clear();
       router.replace(routes.login as Route);
       router.refresh();

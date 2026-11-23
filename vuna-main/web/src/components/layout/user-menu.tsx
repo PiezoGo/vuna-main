@@ -1,7 +1,7 @@
 "use client";
 
 import type { User } from "@vuna/api";
-import { KeyRound, LayoutDashboard, LogOut, UserRound } from "lucide-react";
+import { ClipboardList, KeyRound, LayoutDashboard, LogOut, UserRound } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -47,6 +47,13 @@ export function UserMenu({ user }: { user: MenuUser }) {
           <DropdownMenuItem asChild>
             <Link href={roleHome[role] as Route}>
               <LayoutDashboard /> {role === "buyer" ? "Market" : "My dashboard"}
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        {role === "buyer" ? (
+          <DropdownMenuItem asChild>
+            <Link href={"/orders" as Route}>
+              <ClipboardList /> My orders
             </Link>
           </DropdownMenuItem>
         ) : null}

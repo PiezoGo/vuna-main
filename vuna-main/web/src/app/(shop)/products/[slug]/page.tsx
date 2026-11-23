@@ -52,7 +52,6 @@ export default async function ProductPage({ params }: Props) {
   if (slug !== canonical) permanentRedirect(`/products/${canonical}` as Route);
 
   const path = `/products/${canonical}`;
-  const soldOut = product.quantity <= 0;
   const minimum = product.min_order_quantity ?? 1;
 
   const facts = [
@@ -105,7 +104,13 @@ export default async function ProductPage({ params }: Props) {
             </p>
           </div>
 
-          <BuyBox productPath={path} soldOut={soldOut} />
+          <BuyBox
+            productPath={path}
+            productId={product.id}
+            unit={product.unit}
+            min={minimum}
+            available={product.quantity}
+          />
 
           <dl className="grid grid-cols-2 gap-3">
             {facts.map(({ icon: Icon, label, value }) => (

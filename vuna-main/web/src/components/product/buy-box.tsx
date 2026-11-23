@@ -1,16 +1,26 @@
 "use client";
 
-import { LogIn, ShoppingBasket } from "lucide-react";
+import { LogIn } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
+import { AddToCart } from "@/components/cart/add-to-cart";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { routes } from "@/config/routes";
 import { useSession } from "@/features/auth/queries";
 
-/** Buying actions depend on who is looking. The cart itself arrives in Module 4. */
-export function BuyBox({ productPath, soldOut }: { productPath: string; soldOut: boolean }) {
+type BuyBoxProps = {
+  productPath: string;
+  productId: number;
+  unit: string;
+  min: number;
+  available: number;
+};
+
+/** Buying actions depend on who is looking. */
+export function BuyBox({ productPath, productId, unit, min, available }: BuyBoxProps) {
+  const soldOut = available <= 0 || available < min;
   const { data: user, isPending } = useSession();
 
   if (isPending) return <Skeleton className="h-12 w-full rounded-xl" />;
@@ -37,14 +47,5 @@ export function BuyBox({ productPath, soldOut }: { productPath: string; soldOut:
       </p>
     );
   }
-  return (
-    <div className="grid gap-2">
-      <Button size="lg" disabled className="w-full">
-        <ShoppingBasket /> Add to cart
-      </Button>
-      <p className="text-center text-[13px] text-muted-foreground">
-        Ordering opens in the next update.
-      </p>
-    </div>
-  );
+  return <AddToCart productId={productId} unit={unit} min={min} available={available} />;
 }

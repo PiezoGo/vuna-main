@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { CartButton } from "@/components/cart/cart-button";
 import { UserMenu } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,7 +17,14 @@ export function HeaderAuth() {
   const { data: user, isPending } = useSession();
 
   if (isPending) return <Skeleton className="size-9 rounded-full" />;
-  if (user) return <UserMenu user={user} />;
+  if (user) {
+    return (
+      <>
+        {user.role === "buyer" ? <CartButton /> : null}
+        <UserMenu user={user} />
+      </>
+    );
+  }
   return (
     <>
       <Button variant="ghost" asChild>
