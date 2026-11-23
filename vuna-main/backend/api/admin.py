@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ChatMessage, Cooperative, Order, Product, User
+from .models import ChatMessage, Checkout, Cooperative, DeliveryAddress, Order, Product, User
 
 
 @admin.register(User)
@@ -34,3 +34,25 @@ class CooperativeAdmin(admin.ModelAdmin):
     list_display = ['name', 'county', 'is_active']
     list_filter = ['is_active', 'county']
     search_fields = ['name']
+
+
+class OrderInline(admin.TabularInline):
+    model = Order
+    extra = 0
+    fields = ['product', 'farmer', 'quantity', 'total_price', 'status', 'is_paid', 'refunded']
+    readonly_fields = fields
+    can_delete = False
+
+
+@admin.register(Checkout)
+class CheckoutAdmin(admin.ModelAdmin):
+    list_display = ['id', 'buyer', 'payment_choice', 'delivery_date', 'area', 'paid_at', 'created_at']
+    list_filter = ['payment_choice', 'delivery_date']
+    search_fields = ['buyer__full_name', 'payment_reference']
+    inlines = [OrderInline]
+
+
+@admin.register(DeliveryAddress)
+class DeliveryAddressAdmin(admin.ModelAdmin):
+    list_display = ['label', 'buyer', 'area', 'contact_phone']
+    search_fields = ['buyer__full_name', 'area']

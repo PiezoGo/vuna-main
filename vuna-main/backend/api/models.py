@@ -133,9 +133,59 @@ class Product(models.Model):
         return self.title
 
 
+class DeliveryAddress(models.Model):
+    """A buyer's saved delivery address."""
+    buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='addresses')
+    label = models.CharField(max_length=60, help_text='e.g. "Main kitchen"')
+    contact_name = models.CharField(max_length=120)
+    contact_phone = models.CharField(max_length=20)
+    area = models.CharField(max_length=120, help_text='Town or neighbourhood')
+    details = models.CharField(max_length=255, help_text='Building, street, gate')
+    landmark = models.CharField(max_length=255, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.label} ({self.buyer.full_name})'
+
+
+class Checkout(models.Model):
+    """One buyer cart turned into orders: one Order per product line, paid with one M-Pesa payment."""
+    PAYMENT_CHOICES = [
+        ('pay_now', 'Pay now'),
+        ('pay_after', 'Pay after farmers confirm'),
+    ]
+
+    buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='checkouts')
+    payment_choice = models.CharField(max_length=10, choices=PAYMENT_CHOICES)
+    delivery_date = models.DateField()
+    # Address snapshot: later edits to a saved address don't change past orders.
+    contact_name = models.CharField(max_length=120)
+    contact_phone = models.CharField(max_length=20)
+    area = models.CharField(max_length=120)
+    details = models.CharField(max_length=255)
+    landmark = models.CharField(max_length=255, blank=True, default='')
+    payment_reference = models.CharField(max_length=50, blank=True, default='')
+    paid_at = models.DateTimeField(null=True, blank=True)
+    # Set once every farmer has answered: unpaid accepted lines expire after it.
+    pay_deadline = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Checkout #{self.id} ({self.buyer.full_name})'
+
+
 class Order(models.Model):
     STATUS_CHOICES = [
-        ('pending', 'Pending'),
+        ('pending', 'Waiting for farmer'),
+        ('accepted', 'Accepted, awaiting payment'),
+        ('declined', 'Declined by farmer'),
+        ('expired', 'Expired'),
         ('paid', 'Paid'),
         ('assigned', 'Assigned'),
         ('collected', 'Collected'),
@@ -161,6 +211,13 @@ class Order(models.Model):
     mock_payment_id = models.CharField(max_length=50, blank=True, null=True)
     farmer_paid = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Cart checkout flow (null for orders created by the legacy site)
+    checkout = models.ForeignKey(Checkout, on_delete=models.CASCADE, null=True, blank=True, related_name='orders')
+    # Payment is tracked apart from status: a "pay now" line is paid while still waiting for the farmer.
+    is_paid = models.BooleanField(default=False)
+    refunded = models.BooleanField(default=False)
+    decided_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"Order #{self.id} - {self.product.title} ({self.status})"
