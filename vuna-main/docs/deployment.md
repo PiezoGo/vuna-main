@@ -1,5 +1,7 @@
 # Deploying VUNA (Render + Vercel)
 
+A click-by-click version of this guide is the Claude Doc "VUNA Go-Live Checklist".
+
 Backend (Django) runs on **Render**; the new website (`web/`) runs on **Vercel**. Both deploy from the GitHub repo `PiezoGo/vuna-main`, branch `refine`. The project lives in the `vuna-main/` folder of that repo.
 
 ## 1. Before anything: rotate the Cloudinary secret
@@ -15,7 +17,7 @@ Use your existing Render web service (it already has the Postgres database) or c
 | Root directory | `vuna-main/backend` |
 | Build command | `./build.sh` |
 | Start command | `gunicorn backend.wsgi:application --log-file -` |
-| Health check path | `/api/products/facets/` |
+| Health check path | leave empty |
 
 **Environment variables**
 | Name | Value |
@@ -28,6 +30,7 @@ Use your existing Render web service (it already has the Postgres database) or c
 | `CSRF_TRUSTED_ORIGINS` | `https://<your-render-service>.onrender.com` (for the Django admin) |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | From step 1 |
 | `PYTHON_VERSION` | `3.13.0` |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` (12+ characters), `ADMIN_NAME` | Your admin login; created on deploy by `seed_admin` if it doesn't exist (Render's free plan has no shell) |
 | `MPESA_ENV` | `sandbox` (leave unset for simulated test payments) |
 | `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET` | From your Daraja app |
 | `MPESA_SHORTCODE` | `174379` (sandbox) |
@@ -36,7 +39,7 @@ Use your existing Render web service (it already has the Postgres database) or c
 
 **After the first deploy**
 - Open `https://<your-render-service>.onrender.com/api/products/facets/`: it should return JSON.
-- Create your admin account: Render → Shell → `python manage.py createsuperuser`, then in Django admin set that user's **role** to `admin`.
+- Your admin account is created from `ADMIN_EMAIL`/`ADMIN_PASSWORD` during the build. The old default `admin@vuna.co.ke` password is disabled on deploy.
 - Free Render services sleep after 15 minutes and take about a minute to wake. For the demo, either upgrade to the Starter plan or open the API link a few minutes before you start.
 
 **Order expiry job (recommended)**
