@@ -4,6 +4,44 @@
  */
 
 export interface paths {
+    "/api/addresses/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A buyer's saved delivery addresses. */
+        get: operations["addresses_list"];
+        put?: never;
+        /** @description A buyer's saved delivery addresses. */
+        post: operations["addresses_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/addresses/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A buyer's saved delivery addresses. */
+        get: operations["addresses_retrieve"];
+        /** @description A buyer's saved delivery addresses. */
+        put: operations["addresses_update"];
+        post?: never;
+        /** @description A buyer's saved delivery addresses. */
+        delete: operations["addresses_destroy"];
+        options?: never;
+        head?: never;
+        /** @description A buyer's saved delivery addresses. */
+        patch: operations["addresses_partial_update"];
+        trace?: never;
+    };
     "/api/admin/assign_driver/": {
         parameters: {
             query?: never;
@@ -178,6 +216,72 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["auth_change_password_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/checkouts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["checkouts_list"];
+        put?: never;
+        post: operations["checkouts_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/checkouts/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["checkouts_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/checkouts/{id}/pay/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Simulated M-Pesa payment for whatever is currently payable (replaced by STK Push in Module 5). */
+        post: operations["checkouts_pay_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/checkouts/quote/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Server-side totals and checks for a cart. Open to anyone: prices are public. */
+        post: operations["checkouts_quote_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -373,6 +477,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/orders/{id}/accept/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Farmer accepts an order line within 2 hours. */
+        post: operations["orders_accept_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orders/{id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Buyer cancels an unpaid line that is still open. */
+        post: operations["orders_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orders/{id}/decline/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Farmer declines an order line; stock returns and a paid line is refunded. */
+        post: operations["orders_decline_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/products/": {
         parameters: {
             query?: never;
@@ -535,6 +690,10 @@ export interface components {
          * @enum {string}
          */
         BuyerTypeEnum: "hotel" | "retailer" | "wholesaler";
+        CartItemRequest: {
+            product: number;
+            quantity: number;
+        };
         ChangePasswordRequest: {
             current_password: string;
             new_password: string;
@@ -556,10 +715,68 @@ export interface components {
             readonly timestamp: string;
             readonly is_read: boolean;
         };
+        Checkout: {
+            readonly id: number;
+            readonly payment_choice: components["schemas"]["PaymentChoiceEnum"];
+            /** Format: date */
+            readonly delivery_date: string;
+            readonly contact_name: string;
+            readonly contact_phone: string;
+            readonly area: string;
+            readonly details: string;
+            readonly landmark: string;
+            readonly payment_reference: string;
+            /** Format: date-time */
+            readonly paid_at: string | null;
+            /** Format: date-time */
+            readonly pay_deadline: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly state: string;
+            /** @description Value of the lines still going ahead (not declined, expired or cancelled). */
+            readonly total: string;
+            readonly amount_due: string;
+            readonly amount_paid: string;
+            readonly amount_refunded: string;
+            readonly can_pay: boolean;
+            readonly lines: components["schemas"]["Order"][];
+        };
+        CheckoutCreateRequest: {
+            items: components["schemas"]["CartItemRequest"][];
+            address: number;
+            /** Format: date */
+            delivery_date: string;
+            payment_choice: components["schemas"]["PaymentChoiceEnum"];
+        };
         Cooperative: {
             readonly id: number;
             name: string;
             county?: string;
+        };
+        DeliveryAddress: {
+            readonly id: number;
+            /** @description e.g. "Main kitchen" */
+            label: string;
+            contact_name: string;
+            contact_phone: string;
+            /** @description Town or neighbourhood */
+            area: string;
+            /** @description Building, street, gate */
+            details: string;
+            landmark?: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        DeliveryAddressRequest: {
+            /** @description e.g. "Main kitchen" */
+            label: string;
+            contact_name: string;
+            contact_phone: string;
+            /** @description Town or neighbourhood */
+            area: string;
+            /** @description Building, street, gate */
+            details: string;
+            landmark?: string;
         };
         DetailResponse: {
             detail: string;
@@ -678,6 +895,18 @@ export interface components {
             readonly farmer_paid: boolean;
             /** Format: date-time */
             readonly created_at: string;
+            readonly checkout: number | null;
+            readonly is_paid: boolean;
+            readonly refunded: boolean;
+            /** Format: date-time */
+            readonly decided_at: string | null;
+            /** @description When an unanswered checkout line expires (null once answered, or for legacy orders). */
+            readonly answer_deadline: string | null;
+            /** Format: date */
+            readonly delivery_date: string;
+            readonly delivery_area: string;
+            /** Format: int64 */
+            readonly product_min_order_quantity: number;
         };
         OrderActionResponse: {
             detail: string;
@@ -692,7 +921,10 @@ export interface components {
             quantity: number;
         };
         /**
-         * @description * `pending` - Pending
+         * @description * `pending` - Waiting for farmer
+         *     * `accepted` - Accepted, awaiting payment
+         *     * `declined` - Declined by farmer
+         *     * `expired` - Expired
          *     * `paid` - Paid
          *     * `assigned` - Assigned
          *     * `collected` - Collected
@@ -702,7 +934,7 @@ export interface components {
          *     * `cancelled` - Cancelled
          * @enum {string}
          */
-        OrderStatusEnum: "pending" | "paid" | "assigned" | "collected" | "in_transit" | "delivered" | "completed" | "cancelled";
+        OrderStatusEnum: "pending" | "accepted" | "declined" | "expired" | "paid" | "assigned" | "collected" | "in_transit" | "delivered" | "completed" | "cancelled";
         PaginatedProductList: {
             /** @example 123 */
             count: number;
@@ -717,6 +949,17 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Product"][];
+        };
+        PatchedDeliveryAddressRequest: {
+            /** @description e.g. "Main kitchen" */
+            label?: string;
+            contact_name?: string;
+            contact_phone?: string;
+            /** @description Town or neighbourhood */
+            area?: string;
+            /** @description Building, street, gate */
+            details?: string;
+            landmark?: string;
         };
         PatchedProductRequest: {
             title?: string;
@@ -736,6 +979,12 @@ export interface components {
             delivery_time_varies?: boolean;
             images?: unknown;
         };
+        /**
+         * @description * `pay_now` - Pay now
+         *     * `pay_after` - Pay after farmers confirm
+         * @enum {string}
+         */
+        PaymentChoiceEnum: "pay_now" | "pay_after";
         Product: {
             readonly id: number;
             /** Format: uuid */
@@ -833,6 +1082,32 @@ export interface components {
             completed_sales: number;
             total_listings: number;
         };
+        Quote: {
+            lines: components["schemas"]["QuoteLine"][];
+            /** Format: decimal */
+            total: string;
+            ok: boolean;
+        };
+        QuoteLine: {
+            product: number;
+            title: string;
+            unit: string;
+            /** Format: uuid */
+            farmer_uid: string;
+            farmer_name: string;
+            /** Format: decimal */
+            unit_price: string;
+            available: number;
+            min_order_quantity: number;
+            images: unknown;
+            quantity: number;
+            /** Format: decimal */
+            total: string;
+            error: string;
+        };
+        QuoteRequestRequest: {
+            items: components["schemas"]["CartItemRequest"][];
+        };
         RegisterRequest: {
             /** Format: email */
             email: string;
@@ -920,6 +1195,149 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    addresses_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryAddress"][];
+                };
+            };
+        };
+    };
+    addresses_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliveryAddressRequest"];
+                "multipart/form-data": components["schemas"]["DeliveryAddressRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["DeliveryAddressRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryAddress"];
+                };
+            };
+        };
+    };
+    addresses_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this delivery address. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryAddress"];
+                };
+            };
+        };
+    };
+    addresses_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this delivery address. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliveryAddressRequest"];
+                "multipart/form-data": components["schemas"]["DeliveryAddressRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["DeliveryAddressRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryAddress"];
+                };
+            };
+        };
+    };
+    addresses_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this delivery address. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    addresses_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this delivery address. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedDeliveryAddressRequest"];
+                "multipart/form-data": components["schemas"]["PatchedDeliveryAddressRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedDeliveryAddressRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryAddress"];
+                };
+            };
+        };
+    };
     admin_assign_driver_create: {
         parameters: {
             query?: never;
@@ -1352,6 +1770,135 @@ export interface operations {
             };
         };
     };
+    checkouts_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checkout"][];
+                };
+            };
+        };
+    };
+    checkouts_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutCreateRequest"];
+                "multipart/form-data": components["schemas"]["CheckoutCreateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CheckoutCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checkout"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    checkouts_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this checkout. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checkout"];
+                };
+            };
+        };
+    };
+    checkouts_pay_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this checkout. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Checkout"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    checkouts_quote_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuoteRequestRequest"];
+                "multipart/form-data": components["schemas"]["QuoteRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["QuoteRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Quote"];
+                };
+            };
+        };
+    };
     cooperatives_list: {
         parameters: {
             query?: never;
@@ -1705,6 +2252,120 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Order"];
+                };
+            };
+        };
+    };
+    orders_accept_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this order. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    orders_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this order. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    orders_decline_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this order. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

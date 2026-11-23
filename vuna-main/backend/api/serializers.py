@@ -1,6 +1,8 @@
 from django.contrib.auth import password_validation
+from decimal import Decimal
+
 from rest_framework import serializers
-from .models import ChatMessage, Cooperative, Order, Product, User
+from .models import ChatMessage, Checkout, Cooperative, DeliveryAddress, Order, Product, User
 from .phone import normalize_ke_phone
 
 
@@ -155,6 +157,10 @@ class OrderSerializer(serializers.ModelSerializer):
     farmer_phone = serializers.ReadOnlyField(source='farmer.phone_number')
     farmer_city = serializers.ReadOnlyField(source='farmer.city')
     driver_name = serializers.SerializerMethodField()
+    answer_deadline = serializers.SerializerMethodField()
+    delivery_date = serializers.DateField(source='checkout.delivery_date', read_only=True, default=None)
+    delivery_area = serializers.CharField(source='checkout.area', read_only=True, default=None)
+    product_min_order_quantity = serializers.ReadOnlyField(source='product.min_order_quantity')
 
     class Meta:
         model = Order
@@ -166,11 +172,14 @@ class OrderSerializer(serializers.ModelSerializer):
             'driver', 'driver_name',
             'quantity', 'total_price', 'logistics_fee', 'platform_fee', 'farmer_earnings', 'status',
             'mock_payment_id', 'farmer_paid',
-            'created_at'
+            'created_at',
+            'checkout', 'is_paid', 'refunded', 'decided_at', 'answer_deadline',
+            'delivery_date', 'delivery_area', 'product_min_order_quantity',
         ]
         read_only_fields = [
             'buyer', 'farmer', 'driver', 'total_price', 'logistics_fee', 'platform_fee',
             'farmer_earnings', 'status', 'mock_payment_id', 'farmer_paid', 'created_at',
+            'checkout', 'is_paid', 'refunded', 'decided_at',
         ]
 
     def validate_quantity(self, value):
@@ -182,6 +191,13 @@ class OrderSerializer(serializers.ModelSerializer):
         if obj.driver:
             return obj.driver.full_name
         return None
+
+    def get_answer_deadline(self, obj) -> str | None:
+        """When an unanswered checkout line expires (null once answered, or for legacy orders)."""
+        if obj.checkout_id is None or obj.status != 'pending':
+            return None
+        from .checkout import FARMER_ANSWER_WINDOW
+        return (obj.created_at + FARMER_ANSWER_WINDOW).isoformat()
 
 
 class DriverSerializer(serializers.ModelSerializer):
@@ -291,3 +307,95 @@ class ProductFacetsSerializer(serializers.Serializer):
     commodities = FacetValueSerializer(many=True)
     cities = FacetValueSerializer(many=True)
     markets = FacetValueSerializer(many=True)
+
+
+class DeliveryAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeliveryAddress
+        fields = ['id', 'label', 'contact_name', 'contact_phone', 'area', 'details', 'landmark', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def validate_contact_phone(self, value):
+        return validate_phone(value)
+
+
+class CartItemSerializer(serializers.Serializer):
+    product = serializers.IntegerField(min_value=1)
+    quantity = serializers.IntegerField(min_value=1, max_value=1_000_000)
+
+
+class QuoteRequestSerializer(serializers.Serializer):
+    items = CartItemSerializer(many=True, allow_empty=False, max_length=50)
+
+
+class QuoteLineSerializer(serializers.Serializer):
+    product = serializers.IntegerField(source='product.id')
+    title = serializers.CharField(source='product.title')
+    unit = serializers.CharField(source='product.unit')
+    farmer_uid = serializers.UUIDField(source='product.farmer.uid')
+    farmer_name = serializers.CharField(source='product.farmer.full_name')
+    unit_price = serializers.DecimalField(source='product.listed_price_per_unit', max_digits=10, decimal_places=2)
+    available = serializers.IntegerField(source='product.quantity')
+    min_order_quantity = serializers.IntegerField(source='product.min_order_quantity')
+    images = serializers.JSONField(source='product.images')
+    quantity = serializers.IntegerField()
+    total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    error = serializers.CharField(allow_blank=True)
+
+
+class QuoteSerializer(serializers.Serializer):
+    lines = QuoteLineSerializer(many=True)
+    total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    ok = serializers.BooleanField()
+
+
+class CheckoutCreateSerializer(serializers.Serializer):
+    items = CartItemSerializer(many=True, allow_empty=False, max_length=50)
+    address = serializers.IntegerField()
+    delivery_date = serializers.DateField()
+    payment_choice = serializers.ChoiceField(choices=Checkout.PAYMENT_CHOICES)
+
+
+class CheckoutSerializer(serializers.ModelSerializer):
+    lines = OrderSerializer(source='orders', many=True, read_only=True)
+    state = serializers.SerializerMethodField()
+    total = serializers.SerializerMethodField()
+    amount_due = serializers.SerializerMethodField()
+    amount_paid = serializers.SerializerMethodField()
+    amount_refunded = serializers.SerializerMethodField()
+    can_pay = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Checkout
+        fields = [
+            'id', 'payment_choice', 'delivery_date', 'contact_name', 'contact_phone', 'area', 'details',
+            'landmark', 'payment_reference', 'paid_at', 'pay_deadline', 'created_at',
+            'state', 'total', 'amount_due', 'amount_paid', 'amount_refunded', 'can_pay', 'lines',
+        ]
+        read_only_fields = fields
+
+    def _orders(self, obj):
+        return list(obj.orders.all())
+
+    def get_state(self, obj) -> str:
+        from .checkout import checkout_state
+        return checkout_state(obj)
+
+    def get_total(self, obj) -> str:
+        """Value of the lines still going ahead (not declined, expired or cancelled)."""
+        live = [o.total_price for o in self._orders(obj) if o.status not in ('declined', 'expired', 'cancelled')]
+        return str(sum(live, Decimal('0')))
+
+    def get_amount_due(self, obj) -> str:
+        from .checkout import payable_lines
+        return str(sum((o.total_price for o in payable_lines(obj)), Decimal('0')))
+
+    def get_amount_paid(self, obj) -> str:
+        return str(sum((o.total_price for o in self._orders(obj) if o.is_paid), Decimal('0')))
+
+    def get_amount_refunded(self, obj) -> str:
+        return str(sum((o.total_price for o in self._orders(obj) if o.refunded), Decimal('0')))
+
+    def get_can_pay(self, obj) -> bool:
+        from .checkout import payable_lines
+        return payable_lines(obj).exists()

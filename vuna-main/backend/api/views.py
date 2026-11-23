@@ -7,7 +7,7 @@ from django.core.files.storage import default_storage
 from rest_framework import filters, mixins, viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
@@ -20,6 +20,8 @@ from . import schema
 from .accounts import issue_one_time_password
 from .phone import normalize_ke_phone
 from .permissions import IsAdmin, IsBuyer, IsDriver, IsFarmer, IsProductOwnerOrAdmin
+from . import checkout as checkout_rules
+from .checkout import expire_stale
 from .pricing import listed_price, price_order
 from .serializers import (
     UserSerializer,
@@ -296,7 +298,7 @@ class OrderViewSet(mixins.ListModelMixin,
         if getattr(self, 'swagger_fake_view', False):  # schema generation
             return Order.objects.none()
         user = self.request.user
-        queryset = Order.objects.select_related('product', 'buyer', 'farmer', 'driver')
+        queryset = Order.objects.select_related('product', 'buyer', 'farmer', 'driver', 'checkout')
 
         if user.role == 'farmer':
             queryset = queryset.filter(farmer=user)
@@ -306,11 +308,44 @@ class OrderViewSet(mixins.ListModelMixin,
             queryset = queryset.filter(driver=user)
         # admin sees all
 
+        # Close lines nobody answered in time before showing them.
+        expire_stale(queryset.filter(status__in=('pending', 'accepted')))
+
         status_filter = self.request.query_params.get('status')
         if status_filter:
-            queryset = queryset.filter(status=status_filter)
+            queryset = queryset.filter(status__in=status_filter.split(','))
 
         return queryset.order_by('-created_at')
+
+    def _own_line(self, request, pk, role):
+        order = self.get_object()
+        owner = order.farmer_id if role == 'farmer' else order.buyer_id
+        if request.user.role != role or owner != request.user.pk:
+            raise PermissionDenied('This is not your order.')
+        if order.checkout_id is None:
+            raise ValidationError({'error': 'This order was placed on the old site and cannot be changed here.'})
+        return order
+
+    @extend_schema(request=None, responses={200: OrderSerializer, 400: schema.ErrorResponse, 403: schema.ErrorResponse})
+    @action(detail=True, methods=['post'])
+    def accept(self, request, pk=None):
+        """Farmer accepts an order line within 2 hours."""
+        order = checkout_rules.accept(self._own_line(request, pk, 'farmer'))
+        return Response(OrderSerializer(order).data)
+
+    @extend_schema(request=None, responses={200: OrderSerializer, 400: schema.ErrorResponse, 403: schema.ErrorResponse})
+    @action(detail=True, methods=['post'])
+    def decline(self, request, pk=None):
+        """Farmer declines an order line; stock returns and a paid line is refunded."""
+        order = checkout_rules.decline(self._own_line(request, pk, 'farmer'))
+        return Response(OrderSerializer(order).data)
+
+    @extend_schema(request=None, responses={200: OrderSerializer, 400: schema.ErrorResponse, 403: schema.ErrorResponse})
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """Buyer cancels an unpaid line that is still open."""
+        order = checkout_rules.cancel(self._own_line(request, pk, 'buyer'))
+        return Response(OrderSerializer(order).data)
 
     def perform_create(self, serializer):
         product = serializer.validated_data['product']
@@ -360,6 +395,9 @@ class MockPayView(APIView):
         if order.buyer != request.user:
             return Response({'error': 'You can only pay for your own orders.'}, status=status.HTTP_403_FORBIDDEN)
 
+        if order.checkout_id is not None:
+            return Response({'error': 'Pay for cart orders from the checkout.'}, status=status.HTTP_400_BAD_REQUEST)
+
         if order.status != 'pending':
             return Response(
                 {'error': f'Order is already {order.status}. Only pending orders can be paid.'},
@@ -369,6 +407,7 @@ class MockPayView(APIView):
         # Generate mock payment ID
         mock_id = f"MOCK_{uuid_lib.uuid4().hex[:10].upper()}"
         order.status = 'paid'
+        order.is_paid = True
         order.mock_payment_id = mock_id
         order.save()
 

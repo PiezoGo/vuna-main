@@ -9,6 +9,7 @@ from .accounts import (
     ChangePasswordView,
     CooperativeListView,
 )
+from .checkout_views import CheckoutViewSet, DeliveryAddressViewSet, QuoteView
 from .views import (
     RegisterView,
     LoginView,
@@ -33,6 +34,8 @@ from .views import (
 router = DefaultRouter()
 router.register('products', ProductViewSet, basename='product')
 router.register('orders', OrderViewSet, basename='order')
+router.register('addresses', DeliveryAddressViewSet, basename='address')
+router.register('checkouts', CheckoutViewSet, basename='checkout')
 
 urlpatterns = [
     # Auth
@@ -41,6 +44,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('auth/change-password/', ChangePasswordView.as_view(), name='change_password'),
     path('cooperatives/', CooperativeListView.as_view(), name='cooperatives'),
+    path('checkouts/quote/', QuoteView.as_view(), name='checkout_quote'),
 
     # Profile
     path('profile/', ProfileUpdateView.as_view(), name='profile_update'),
