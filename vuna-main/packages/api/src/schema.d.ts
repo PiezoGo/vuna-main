@@ -263,7 +263,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Simulated M-Pesa payment for whatever is currently payable (replaced by STK Push in Module 5). */
+        /** @description Send an M-Pesa prompt for whatever is payable now (simulated when M-Pesa is off). */
         post: operations["checkouts_pay_create"];
         delete?: never;
         options?: never;
@@ -522,6 +522,23 @@ export interface paths {
         put?: never;
         /** @description Farmer declines an order line; stock returns and a paid line is refunded. */
         post: operations["orders_decline_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/payments/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The buyer polls this while the prompt is on their phone. */
+        get: operations["payments_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -853,6 +870,26 @@ export interface components {
             mock_payment_id: string;
             order: components["schemas"]["Order"];
         };
+        MpesaPayment: {
+            readonly id: number;
+            readonly checkout: number;
+            readonly phone: string;
+            /** @description Whole shillings sent to M-Pesa */
+            readonly amount: number;
+            readonly status: components["schemas"]["MpesaPaymentStatusEnum"];
+            readonly simulated: boolean;
+            readonly receipt_number: string;
+            readonly message: string;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        /**
+         * @description * `requested` - Waiting for the buyer
+         *     * `paid` - Paid
+         *     * `failed` - Failed
+         * @enum {string}
+         */
+        MpesaPaymentStatusEnum: "requested" | "paid" | "failed";
         /** @enum {unknown} */
         NullEnum: null;
         Order: {
@@ -1150,6 +1187,9 @@ export interface components {
             login_email: string;
             /** @description Shown once. Give it to the person; it is not stored readably. */
             one_time_password: string;
+        };
+        StartPaymentRequest: {
+            phone?: string;
         };
         User: {
             /** Format: uuid */
@@ -1854,14 +1894,20 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StartPaymentRequest"];
+                "multipart/form-data": components["schemas"]["StartPaymentRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["StartPaymentRequest"];
+            };
+        };
         responses: {
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Checkout"];
+                    "application/json": components["schemas"]["MpesaPayment"];
                 };
             };
             400: {
@@ -2361,6 +2407,35 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    payments_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MpesaPayment"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

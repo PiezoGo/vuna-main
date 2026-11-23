@@ -9,7 +9,7 @@ from .accounts import (
     ChangePasswordView,
     CooperativeListView,
 )
-from .checkout_views import CheckoutViewSet, DeliveryAddressViewSet, QuoteView
+from .checkout_views import CheckoutViewSet, DeliveryAddressViewSet, MpesaCallbackView, PaymentDetailView, QuoteView
 from .views import (
     RegisterView,
     LoginView,
@@ -45,6 +45,8 @@ urlpatterns = [
     path('auth/change-password/', ChangePasswordView.as_view(), name='change_password'),
     path('cooperatives/', CooperativeListView.as_view(), name='cooperatives'),
     path('checkouts/quote/', QuoteView.as_view(), name='checkout_quote'),
+    path('payments/<int:pk>/', PaymentDetailView.as_view(), name='payment_detail'),
+    path('payments/mpesa/callback/<str:token>/', MpesaCallbackView.as_view(), name='mpesa_callback'),
 
     # Profile
     path('profile/', ProfileUpdateView.as_view(), name='profile_update'),

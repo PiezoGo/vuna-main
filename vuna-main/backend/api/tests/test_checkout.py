@@ -87,8 +87,11 @@ class CreateCheckoutTests(CheckoutTestBase):
 class PayNowTests(CheckoutTestBase):
     def test_pay_now_then_decline_refunds_that_line(self):
         checkout = self.checkout('pay_now').data
-        paid = self.api.post(f"/api/checkouts/{checkout['id']}/pay/")
-        self.assertEqual(paid.status_code, 200, paid.data)
+        payment = self.api.post(f"/api/checkouts/{checkout['id']}/pay/")
+        self.assertEqual(payment.status_code, 201, payment.data)
+        self.assertEqual(payment.data['status'], 'paid')
+        self.assertTrue(payment.data['simulated'])
+        paid = self.api.get(f"/api/checkouts/{checkout['id']}/")
         self.assertEqual(Decimal(paid.data['amount_paid']), Decimal('1440.00'))
         self.assertEqual(paid.data['state'], 'awaiting_farmers')
 
@@ -121,7 +124,8 @@ class PayAfterTests(CheckoutTestBase):
         ready = self.api.get(f"/api/checkouts/{checkout['id']}/").data
         self.assertTrue(ready['can_pay'])
         self.assertEqual(Decimal(ready['amount_due']), Decimal('1200.00'))
-        paid = self.api.post(f"/api/checkouts/{checkout['id']}/pay/").data
+        self.assertEqual(self.api.post(f"/api/checkouts/{checkout['id']}/pay/").data['amount'], 1200)
+        paid = self.api.get(f"/api/checkouts/{checkout['id']}/").data
         self.assertEqual(Decimal(paid['amount_paid']), Decimal('1200.00'))
         self.assertFalse(paid['lines'][0]['refunded'] and paid['lines'][1]['refunded'])
         self.assertEqual(self.line(checkout, self.tomatoes).status, 'paid')

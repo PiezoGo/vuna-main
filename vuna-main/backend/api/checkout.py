@@ -192,28 +192,21 @@ def payable_lines(checkout: Checkout):
     return lines
 
 
-def simulate_payment(checkout: Checkout) -> Checkout:
-    """Stand-in for an M-Pesa STK Push confirmation."""
-    with transaction.atomic():
-        checkout = Checkout.objects.select_for_update().get(pk=checkout.pk)
-        expire_stale(checkout.orders.all())
-        lines = list(payable_lines(checkout))
-        if not lines:
-            if checkout.payment_choice == 'pay_after' and checkout.orders.filter(status='pending').exists():
-                raise ValidationError({'error': 'Wait until every farmer has answered, then pay for what they accepted.'})
-            raise ValidationError({'error': 'There is nothing to pay for.'})
-        reference = f'SIM{uuid.uuid4().hex[:9].upper()}'
-        now = timezone.now()
-        for line in lines:
-            line.is_paid = True
-            line.mock_payment_id = reference
-            if line.status == 'accepted':
-                line.status = 'paid'
-            line.save(update_fields=['is_paid', 'mock_payment_id', 'status'])
-        checkout.payment_reference = reference
-        checkout.paid_at = now
-        checkout.save(update_fields=['payment_reference', 'paid_at'])
-    return checkout
+def mark_lines_paid(lines, reference: str) -> None:
+    """
+    Record a confirmed payment on these lines. A line that closed while the buyer was paying
+    (declined or expired) is marked paid and refunded, so the money is accounted for.
+    """
+    for line in lines:
+        if line.is_paid:
+            continue
+        line.is_paid = True
+        line.mock_payment_id = reference
+        if line.status == 'accepted':
+            line.status = 'paid'
+        elif line.status in ('declined', 'expired', 'cancelled'):
+            line.refunded = True
+        line.save(update_fields=['is_paid', 'mock_payment_id', 'status', 'refunded'])
 
 
 def expire_stale(queryset=None, now=None) -> int:

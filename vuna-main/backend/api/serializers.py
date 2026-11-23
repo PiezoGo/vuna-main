@@ -2,7 +2,7 @@ from django.contrib.auth import password_validation
 from decimal import Decimal
 
 from rest_framework import serializers
-from .models import ChatMessage, Checkout, Cooperative, DeliveryAddress, Order, Product, User
+from .models import ChatMessage, Checkout, Cooperative, DeliveryAddress, MpesaPayment, Order, Product, User
 from .phone import normalize_ke_phone
 
 
@@ -399,3 +399,22 @@ class CheckoutSerializer(serializers.ModelSerializer):
     def get_can_pay(self, obj) -> bool:
         from .checkout import payable_lines
         return payable_lines(obj).exists()
+
+
+class StartPaymentSerializer(serializers.Serializer):
+    phone = serializers.CharField(required=False, allow_blank=True, max_length=20)
+
+
+class MpesaPaymentSerializer(serializers.ModelSerializer):
+    message = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MpesaPayment
+        fields = ['id', 'checkout', 'phone', 'amount', 'status', 'simulated', 'receipt_number', 'message', 'created_at']
+        read_only_fields = fields
+
+    def get_message(self, obj) -> str:
+        from .mpesa import result_message
+        if obj.status == 'requested':
+            return 'Check your phone and enter your M-Pesa PIN.'
+        return result_message(obj.result_code, obj.result_desc)
