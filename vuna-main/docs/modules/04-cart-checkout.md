@@ -1,6 +1,6 @@
 # Module 4: Cart, checkout and farmer confirmation
 
-Status: **plan, waiting for approval**. Branch `refine`. Completes Milestone 1 (live demo, Tue 24 Nov 2026).
+Status: **built 2026-11-23, waiting for review**. Branch `refine`. Completes Milestone 1 (live demo, Tue 24 Nov 2026).
 PRD stories: CART-1, CART-2, CART-3, PAY-1 (simulated), FRM-2, ORD-1 (basic). Business rules: `docs/business-rules.md` §3, PRD §7.2.
 
 ## Goal
@@ -51,3 +51,21 @@ Real M-Pesa (Module 5), delivery trips and drivers (Module 8–9), farmer listin
 - [ ] A farmer can't accept another farmer's order; a buyer can't see another buyer's checkout
 - [ ] Cart survives a refresh; empties after checkout
 - [ ] Works at 375 px wide
+
+## Done (2026-11-23)
+
+Answers used (recommended defaults): buyers can cancel unpaid items before payment; delivery date is tomorrow or later; saved addresses only (adding one at checkout saves it).
+
+Results: backend 55 tests pass (12 new); web lint, type-check and 34 unit tests pass; production build passes.
+
+Checked by hand (production build, local test accounts):
+- Through the web proxy: quote for 2 farmers' items (KSh 6,840), checkout with **Pay now**, simulated payment; farmer A accepted (line → paid), farmer B declined (line refunded KSh 360, stock back from 17 to 20). Checkout ends "paid" with total KSh 6,480.
+- In the browser as a buyer: add to cart from two product pages, cart grouped by farmer with server totals, add an address at checkout, place order, simulated M-Pesa dialog, order page shows both lines "Waiting for farmer · Paid" with the 2-hour answer deadline.
+
+Changes vs plan:
+- "Add to cart" shows no price estimate: totals come only from the server quote (project rule).
+- Cart is cleared on sign-out (it belongs to whoever is signed in on the device).
+- A hydration mismatch on product pages (cart quantity read before hydration) was found and fixed.
+- `expire_orders` should run every few minutes in production (cron or a scheduled task) once deployed; until then, expiry happens whenever orders are viewed.
+
+Not done here: real M-Pesa (Module 5), farmer listing management, notifications.
