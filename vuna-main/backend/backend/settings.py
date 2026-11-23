@@ -17,6 +17,17 @@ def env_list(name, default=''):
     return [item.strip() for item in os.environ.get(name, default).split(',') if item.strip()]
 
 
+def env_origins(name, default=''):
+    """Origins like https://example.com. Tolerates trailing slashes and missing https://."""
+    origins = []
+    for item in env_list(name, default):
+        item = item.rstrip('/')
+        if '://' not in item:
+            item = f'https://{item}'
+        origins.append(item)
+    return origins
+
+
 def env_required(name, dev_fallback=None):
     """Secrets must come from the environment. In DEBUG a harmless fallback is allowed."""
     value = os.environ.get(name)
@@ -141,11 +152,11 @@ AUTH_PASSWORD_VALIDATORS = [
 # ── CORS ──────────────────────────────────────────────────────────────────────
 # Browsers on these origins may call the API directly (legacy Vite app, local dev).
 # The new Next.js app calls Django server-side, so it does not need CORS.
-CORS_ALLOWED_ORIGINS = env_list(
+CORS_ALLOWED_ORIGINS = env_origins(
     'CORS_ALLOWED_ORIGINS',
     'https://vuna-main.vercel.app,http://localhost:5173,http://localhost:3000',
 )
-_client_url = os.environ.get('CLIENT_URL', '').strip()
+_client_url = os.environ.get('CLIENT_URL', '').strip().rstrip('/')
 if _client_url and _client_url not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(_client_url)
 CORS_ALLOW_CREDENTIALS = True
@@ -203,7 +214,9 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
-    CSRF_TRUSTED_ORIGINS = env_list('CSRF_TRUSTED_ORIGINS')
+    CSRF_TRUSTED_ORIGINS = env_origins('CSRF_TRUSTED_ORIGINS')
+    if render_host:
+        CSRF_TRUSTED_ORIGINS.append(f'https://{render_host}')
 
 # ── Static & Media ───────────────────────────────────────────────────────────
 STATIC_URL = '/static/'
