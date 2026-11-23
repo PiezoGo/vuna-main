@@ -27,7 +27,21 @@ function parse<T extends z.ZodType>(
     const issues = result.error.issues
       .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
       .join("\n");
-    throw new Error(`Invalid ${label} environment variables:\n${issues}\nSee web/.env.example.`);
+    // Names only (never values), so a failing deploy log shows what the host actually provided.
+    const seen = Object.keys(process.env)
+      .filter(
+        (k) =>
+          k === "API_URL" || k.startsWith("NEXT_PUBLIC_") || k === "ENABLE_EXPERIMENTAL_COREPACK",
+      )
+      .sort();
+    const host = process.env.VERCEL
+      ? ` Vercel environment: ${process.env.VERCEL_ENV ?? "unknown"}.`
+      : "";
+    throw new Error(
+      `Invalid ${label} environment variables:\n${issues}\n` +
+        `Variables present: ${seen.length ? seen.join(", ") : "none of API_URL / NEXT_PUBLIC_*"}.${host}\n` +
+        "See web/.env.example (on Vercel: Settings → Environment Variables, tick the environment named above).",
+    );
   }
   return result.data;
 }
