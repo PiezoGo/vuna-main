@@ -2286,7 +2286,12 @@ export interface operations {
     };
     orders_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description 'true' = paid lines that were not refunded */
+                paid?: string;
+                /** @description Comma-separated statuses */
+                status?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -2551,6 +2556,8 @@ export interface operations {
                 city?: string;
                 /** @description Commodity contains (case-insensitive) */
                 commodity?: string;
+                /** @description With my_listings, for field agents: the linked farmer uid */
+                farmer?: string;
                 /** @description Exact harvest date, YYYY-MM-DD */
                 harvest_date?: string;
                 /** @description Farmer's market, exact (case-insensitive) */
@@ -2565,6 +2572,8 @@ export interface operations {
                 page_size?: number;
                 /** @description A search term. */
                 search?: string;
+                /** @description With my_listings: 'all' also returns removed (archived) listings */
+                status?: string;
             };
             header?: never;
             path?: never;

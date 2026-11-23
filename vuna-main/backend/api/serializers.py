@@ -124,6 +124,9 @@ class ProductSerializer(serializers.ModelSerializer):
             'created_at', 'is_active', 'farmer_earnings_per_unit',
         ]
         read_only_fields = ['farmer', 'listed_price_per_unit', 'created_at']
+        # Multipart forms (photo uploads) omit unchecked booleans; without a default DRF reads a
+        # missing is_active as False and every new listing would start paused.
+        extra_kwargs = {'is_active': {'default': True}}
 
     def validate_base_price_per_unit(self, value):
         if value <= 0:

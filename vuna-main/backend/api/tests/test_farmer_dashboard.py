@@ -55,6 +55,15 @@ class ListingManagementTests(TestCase):
         self.assertEqual(self.product.images[0], 'https://x/b.jpg')
         self.assertTrue(self.product.images[1].endswith('image3_c.jpg'))
 
+    def test_multipart_create_and_edit_keep_listing_live(self):
+        res = self.api.post('/api/products/', {
+            'title': 'Kale', 'unit': 'bunch', 'base_price_per_unit': '25', 'quantity': '40', 'min_order_quantity': '5',
+        }, format='multipart')
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assertTrue(res.data['is_active'])
+        edit = self.api.patch(f"/api/products/{res.data['id']}/", {'quantity': '30'}, format='multipart')
+        self.assertTrue(edit.data['is_active'])
+
     def test_rejects_non_images(self):
         doc = SimpleUploadedFile('x.pdf', b'%PDF', content_type='application/pdf')
         res = self.api.patch(f'/api/products/{self.product.id}/', {'image1': doc}, format='multipart')

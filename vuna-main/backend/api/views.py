@@ -160,6 +160,8 @@ class ProductPagination(PageNumberPagination):
     OpenApiParameter('market', str, description="Farmer's market, exact (case-insensitive)"),
     OpenApiParameter('harvest_date', str, description='Exact harvest date, YYYY-MM-DD'),
     OpenApiParameter('my_listings', str, description="'true' = the signed-in farmer's own listings, unpaginated"),
+    OpenApiParameter('farmer', str, description='With my_listings, for field agents: the linked farmer uid'),
+    OpenApiParameter('status', str, description="With my_listings: 'all' also returns removed (archived) listings"),
 ]))
 class ProductViewSet(viewsets.ModelViewSet):
     """
@@ -333,6 +335,10 @@ class ProductViewSet(viewsets.ModelViewSet):
 # ────────────────────────────────────────────────────────────
 #  Order views
 # ────────────────────────────────────────────────────────────
+@extend_schema_view(list=extend_schema(parameters=[
+    OpenApiParameter('status', str, description='Comma-separated statuses'),
+    OpenApiParameter('paid', str, description="'true' = paid lines that were not refunded"),
+]))
 class OrderViewSet(mixins.ListModelMixin,
                    mixins.RetrieveModelMixin,
                    mixins.CreateModelMixin,
