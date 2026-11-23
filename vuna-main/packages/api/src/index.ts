@@ -23,3 +23,5 @@ export type RegisterRequest = Schemas["RegisterRequest"];
 export type ProfileUpdateRequest = Schemas["ProfileUpdateRequest"];
 export type ApprovalStatus = Schemas["ApprovalStatusEnum"];
 export type BuyerType = Schemas["BuyerTypeEnum"];
+export type FacetValue = Schemas["FacetValue"];
+export type ProductFacets = Schemas["ProductFacets"];
