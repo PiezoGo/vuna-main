@@ -10,10 +10,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { getFarmerProfile } from "@/lib/api/endpoints/catalog";
 import { requireUser } from "@/lib/auth/session";
 import { formatKePhone } from "@/lib/phone";
+import { UUID_PATTERN as UUID } from "@/lib/uuid";
 
 export const metadata: Metadata = { title: "Farmer", robots: { index: false, follow: false } };
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export default async function FarmerProfilePage({ params }: { params: Promise<{ uid: string }> }) {
   const { uid } = await params;

@@ -1,27 +1,21 @@
-import { Users } from "lucide-react";
 import type { Metadata } from "next";
 
-import { ComingNext } from "@/components/dashboard/coming-next";
+import { AgentFarmers } from "@/components/dashboard/agent-farmers";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireUser } from "@/lib/auth/session";
 
-export const metadata: Metadata = { title: "Field agent" };
+export const metadata: Metadata = { title: "My farmers" };
 
 export default async function AgentHome() {
-  // Layouts and pages render in parallel, so every page checks the role itself.
   await requireUser("/agent", { roles: ["agent"] });
   return (
-    <>
+    <div className="grid gap-6">
       <PageHeader
         eyebrow="Field agent"
         title="My farmers"
-        description="Farmers linked to you and their listings."
+        description="Manage listings for the farmers you support. Their earnings always go to their own M-Pesa."
       />
-      <ComingNext
-        icon={Users}
-        title="Managing farmers is coming soon"
-        description="You'll add and update listings for the farmers you support."
-      />
-    </>
+      <AgentFarmers />
+    </div>
   );
 }

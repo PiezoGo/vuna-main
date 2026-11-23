@@ -53,8 +53,5 @@ export const dashboardNav: Record<Role, NavItem[]> = {
     { title: "Drivers", href: "/admin/drivers", icon: Truck },
     { title: "Users", href: "/admin/users", icon: Users },
   ],
-  agent: [
-    { title: "My farmers", href: "/agent", icon: Users },
-    { title: "Listings", href: "/agent/listings", icon: Package },
-  ],
+  agent: [{ title: "My farmers", href: "/agent", icon: Users }],
 };
