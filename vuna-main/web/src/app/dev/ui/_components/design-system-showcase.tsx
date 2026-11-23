@@ -6,7 +6,8 @@ import { toast } from "sonner";
 
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import { Avatar, AvatarFallback, initials } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { initials } from "@/lib/initials";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {

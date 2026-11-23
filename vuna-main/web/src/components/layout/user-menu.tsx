@@ -5,7 +5,8 @@ import { KeyRound, LayoutDashboard, LogOut, UserRound } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
-import { Avatar, AvatarFallback, initials } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { initials } from "@/lib/initials";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
