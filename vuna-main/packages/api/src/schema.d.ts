@@ -206,6 +206,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/farmers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Farmers linked to the signed-in field agent. */
+        get: operations["agent_farmers_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/change-password/": {
         parameters: {
             query?: never;
@@ -345,6 +362,23 @@ export interface paths {
             cookie?: never;
         };
         get: operations["farmer_earnings_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/farmer/summary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Numbers for the farmer's overview page. */
+        get: operations["farmer_summary_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -682,6 +716,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AgentFarmer: {
+            /** Format: uuid */
+            readonly uid: string;
+            readonly full_name: string;
+            readonly phone_number: string;
+            readonly city: string;
+            readonly market: string;
+            readonly cooperative_name: string;
+            readonly approval_status: components["schemas"]["ApprovalStatusEnum"];
+            readonly live_listings: number;
+            readonly waiting_orders: number;
+        };
         /**
          * @description * `pending` - Pending
          *     * `approved` - Approved
@@ -857,6 +903,17 @@ export interface components {
             total_earnings: number;
             completed_orders: components["schemas"]["Order"][];
         };
+        FarmerSummary: {
+            live_listings: number;
+            paused_listings: number;
+            waiting_orders: number;
+            /** Format: decimal */
+            earnings_due: string;
+            /** Format: decimal */
+            paid_out: string;
+            /** Format: decimal */
+            earned_this_month: string;
+        };
         LoginRequestRequest: {
             /** Format: email */
             email: string;
@@ -1015,6 +1072,7 @@ export interface components {
             delivery_time_manual?: number | null;
             delivery_time_varies?: boolean;
             images?: unknown;
+            is_active?: boolean;
         };
         /**
          * @description * `pay_now` - Pay now
@@ -1053,7 +1111,9 @@ export interface components {
             images?: unknown;
             /** Format: date-time */
             readonly created_at: string;
-            readonly is_active: boolean;
+            is_active?: boolean;
+            /** @description What the farmer receives per unit after VUNA's fee (from api/pricing.py). */
+            readonly farmer_earnings_per_unit: string;
         };
         ProductFacets: {
             commodities: components["schemas"]["FacetValue"][];
@@ -1077,6 +1137,7 @@ export interface components {
             delivery_time_manual?: number | null;
             delivery_time_varies?: boolean;
             images?: unknown;
+            is_active?: boolean;
         };
         /**
          * @description * `kg` - kg
@@ -1775,6 +1836,25 @@ export interface operations {
             };
         };
     };
+    agent_farmers_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentFarmer"][];
+                };
+            };
+        };
+    };
     auth_change_password_create: {
         parameters: {
             query?: never;
@@ -2039,6 +2119,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    farmer_summary_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmerSummary"];
                 };
             };
         };

@@ -1,9 +1,11 @@
 import uuid as uuid_lib
+from decimal import Decimal
 
-from django.db import transaction
-from django.db.models import Count, Min, Q
-from django.db.models.functions import Lower
 from django.core.files.storage import default_storage
+from django.db import transaction
+from django.db.models import Count, Min, Q, Sum
+from django.db.models.functions import Lower
+from django.utils import timezone
 from rest_framework import filters, mixins, viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
@@ -19,13 +21,15 @@ from .models import User, Product, Order, ChatMessage
 from . import schema
 from .accounts import issue_one_time_password
 from .phone import normalize_ke_phone
-from .permissions import IsAdmin, IsBuyer, IsDriver, IsFarmer, IsProductOwnerOrAdmin
+from .permissions import IsAdmin, IsAgent, IsBuyer, IsDriver, IsFarmer, IsFarmerOrAgent, IsProductOwnerOrAdmin
 from . import checkout as checkout_rules
 from .checkout import expire_stale
 from .pricing import listed_price, price_order
 from .serializers import (
     UserSerializer,
     FarmerProfileSerializer,
+    AgentFarmerSerializer,
+    FarmerSummarySerializer,
     ProductFacetsSerializer,
     ProfileUpdateSerializer,
     RegisterSerializer,
@@ -176,20 +180,33 @@ class ProductViewSet(viewsets.ModelViewSet):
             return [permissions.AllowAny()]
         if self.action in ('list', 'retrieve') and not self._wants_my_listings():
             return [permissions.AllowAny()]
-        if self.action == 'create':
-            return [IsFarmer()]
-        if self._wants_my_listings():
-            return [IsFarmer()]
+        if self.action == 'create' or self._wants_my_listings():
+            return [IsFarmerOrAgent()]
         return [IsProductOwnerOrAdmin()]
 
     def _wants_my_listings(self):
         return self.request.query_params.get('my_listings') == 'true'
 
+    def _acting_farmer(self, uid=None):
+        """The farmer whose listings are being managed: the user, or a farmer linked to this agent."""
+        user = self.request.user
+        if user.role == 'farmer':
+            return user
+        uid = uid or self.request.query_params.get('farmer') or self.request.data.get('farmer')
+        farmer = User.objects.filter(uid=uid, role='farmer', agent=user).first() if uid else None
+        if farmer is None:
+            raise ValidationError({'farmer': ['Choose one of the farmers linked to you.']})
+        return farmer
+
     def get_queryset(self):
         queryset = Product.objects.select_related('farmer', 'farmer__cooperative')
 
         if self._wants_my_listings():
-            queryset = queryset.filter(farmer=self.request.user)
+            queryset = queryset.filter(farmer=self._acting_farmer())
+            status_filter = self.request.query_params.get('status')
+            if status_filter != 'all':
+                # "Removed" listings are archived, not deleted; hide them unless asked.
+                queryset = queryset.exclude(archived=True)
         elif self.action in ('list', 'retrieve'):
             # Marketplace feed: only active listings from approved farmers
             queryset = queryset.filter(is_active=True, farmer__approval_status='approved')
@@ -237,23 +254,60 @@ class ProductViewSet(viewsets.ModelViewSet):
         return super().paginate_queryset(queryset)
 
     def perform_create(self, serializer):
+        self._check_images()
         base_price = serializer.validated_data['base_price_per_unit']
-        product = serializer.save(farmer=self.request.user, listed_price_per_unit=listed_price(base_price))
+        product = serializer.save(
+            farmer=self._acting_farmer(),
+            created_by=self.request.user,
+            listed_price_per_unit=listed_price(base_price),
+        )
         self._handle_image_uploads(product)
 
     def perform_update(self, serializer):
+        self._check_images()
         base_price = serializer.validated_data.get(
             'base_price_per_unit', serializer.instance.base_price_per_unit
         )
-        product = serializer.save(listed_price_per_unit=listed_price(base_price))
+        extra = {}
+        if serializer.validated_data.get('is_active'):
+            extra['archived'] = False  # showing a listing again un-archives it
+        product = serializer.save(listed_price_per_unit=listed_price(base_price), **extra)
         self._handle_image_uploads(product)
 
+    def perform_destroy(self, instance):
+        """Removing a listing archives it: deleting would also delete its orders."""
+        instance.is_active = False
+        instance.archived = True
+        instance.save(update_fields=['is_active', 'archived'])
+
+    MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+    def _check_images(self):
+        for key in ('image1', 'image2', 'image3'):
+            upload = self.request.FILES.get(key)
+            if upload is None:
+                continue
+            if not (upload.content_type or '').startswith('image/'):
+                raise ValidationError({key: ['Upload a photo (JPEG, PNG or WebP).']})
+            if upload.size > self.MAX_IMAGE_BYTES:
+                raise ValidationError({key: ['Photos must be under 5 MB.']})
+
     def _handle_image_uploads(self, product):
+        """
+        Photos live in 3 slots. `remove_images` ("0,2") empties slots; `image1`..`image3`
+        fill slots 1..3. Remaining photos are then packed to the front.
+        """
         existing = list(product.images or [])
         while len(existing) < 3:
             existing.append(None)
 
         changed = False
+        removals = str(self.request.data.get('remove_images', '') or '')
+        for part in removals.split(','):
+            if part.strip().isdigit() and int(part) < 3:
+                existing[int(part)] = None
+                changed = True
+
         for idx, key in enumerate(['image1', 'image2', 'image3']):
             if key in self.request.FILES:
                 image_file = self.request.FILES[key]
@@ -314,6 +368,8 @@ class OrderViewSet(mixins.ListModelMixin,
         status_filter = self.request.query_params.get('status')
         if status_filter:
             queryset = queryset.filter(status__in=status_filter.split(','))
+        if self.request.query_params.get('paid') == 'true':
+            queryset = queryset.filter(is_paid=True, refunded=False)
 
         return queryset.order_by('-created_at')
 
@@ -788,3 +844,53 @@ class ChatInboxView(APIView):
 
         inbox_data.sort(key=lambda x: x['last_message']['timestamp'], reverse=True)
         return Response(inbox_data)
+
+
+# ────────────────────────────────────────────────────────────
+#  Farmer dashboard and field agents
+# ────────────────────────────────────────────────────────────
+OPEN_FOR_FARMER = ('pending', 'accepted', 'paid', 'assigned', 'collected', 'in_transit', 'delivered', 'completed')
+
+
+class FarmerSummaryView(APIView):
+    """Numbers for the farmer's overview page."""
+    permission_classes = [IsFarmer]
+
+    @extend_schema(responses=FarmerSummarySerializer)
+    def get(self, request):
+        farmer = request.user
+        expire_stale(Order.objects.filter(farmer=farmer, status__in=('pending', 'accepted')))
+        orders = Order.objects.filter(farmer=farmer)
+        earned = orders.filter(is_paid=True, refunded=False, status__in=OPEN_FOR_FARMER)
+        month_start = timezone.localdate().replace(day=1)
+
+        def total(qs):
+            return qs.aggregate(s=Sum('farmer_earnings'))['s'] or Decimal('0')
+
+        products = Product.objects.filter(farmer=farmer)
+        return Response(FarmerSummarySerializer({
+            'live_listings': products.filter(is_active=True, quantity__gt=0).count(),
+            'paused_listings': products.filter(is_active=False, archived=False).count(),
+            'waiting_orders': orders.filter(status='pending', checkout__isnull=False).count(),
+            'earnings_due': total(earned.filter(farmer_paid=False)),
+            'paid_out': total(earned.filter(farmer_paid=True)),
+            'earned_this_month': total(earned.filter(created_at__date__gte=month_start)),
+        }).data)
+
+
+class AgentFarmersView(APIView):
+    """Farmers linked to the signed-in field agent."""
+    permission_classes = [IsAgent]
+
+    @extend_schema(responses=AgentFarmerSerializer(many=True))
+    def get(self, request):
+        farmers = (
+            User.objects.filter(role='farmer', agent=request.user)
+            .select_related('cooperative')
+            .annotate(
+                live_listings=Count('products', filter=Q(products__is_active=True), distinct=True),
+                waiting_orders=Count('farmer_orders', filter=Q(farmer_orders__status='pending'), distinct=True),
+            )
+            .order_by('full_name')
+        )
+        return Response(AgentFarmerSerializer(farmers, many=True).data)

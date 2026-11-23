@@ -92,4 +92,7 @@ class ProductWritePermissionTests(TestCase):
         url = f'/api/products/{self.product.id}/'
         self.assertEqual(client_for(admin).patch(url, {'title': 'Edited'}).status_code, 200)
         self.assertEqual(client_for(admin).delete(url).status_code, 204)
-        self.assertFalse(Product.objects.filter(pk=self.product.pk).exists())
+        # Removing archives the listing; its orders must survive.
+        self.product.refresh_from_db()
+        self.assertTrue(self.product.archived)
+        self.assertFalse(self.product.is_active)

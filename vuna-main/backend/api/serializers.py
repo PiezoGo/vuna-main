@@ -111,6 +111,7 @@ class ProductSerializer(serializers.ModelSerializer):
     farmer_phone = serializers.ReadOnlyField(source='farmer.phone_number')
     farmer_uid = serializers.ReadOnlyField(source='farmer.uid')
     farmer_cooperative = serializers.CharField(source='farmer.cooperative.name', read_only=True, default=None)
+    farmer_earnings_per_unit = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -120,14 +121,19 @@ class ProductSerializer(serializers.ModelSerializer):
             'title', 'commodity', 'unit', 'base_price_per_unit', 'listed_price_per_unit', 'quantity', 'harvest_date',
             'description', 'min_order_quantity',
             'delivery_time_manual', 'delivery_time_varies', 'images',
-            'created_at', 'is_active'
+            'created_at', 'is_active', 'farmer_earnings_per_unit',
         ]
-        read_only_fields = ['farmer', 'listed_price_per_unit', 'created_at', 'is_active']
+        read_only_fields = ['farmer', 'listed_price_per_unit', 'created_at']
 
     def validate_base_price_per_unit(self, value):
         if value <= 0:
             raise serializers.ValidationError('Price must be greater than zero.')
         return value
+
+    def get_farmer_earnings_per_unit(self, obj) -> str:
+        """What the farmer receives per unit after VUNA's fee (from api/pricing.py)."""
+        from .pricing import price_order
+        return str(price_order(obj.base_price_per_unit, 1).farmer_earnings)
 
     def validate_min_order_quantity(self, value):
         if value < 1:
@@ -140,6 +146,15 @@ class ProductSerializer(serializers.ModelSerializer):
         # Contact details are only for signed-in users (the catalogue is public).
         if not (request and request.user and request.user.is_authenticated):
             data['farmer_phone'] = None
+        # The farmer's own price and share are only for the farmer, their agent and admins.
+        user = getattr(request, 'user', None)
+        is_manager = bool(user and user.is_authenticated and (
+            user.role == 'admin' or user.pk == instance.farmer_id
+            or (user.role == 'agent' and instance.farmer.agent_id == user.pk)
+        ))
+        if not is_manager:
+            data['base_price_per_unit'] = None
+            data['farmer_earnings_per_unit'] = None
         return data
 
 
@@ -418,3 +433,26 @@ class MpesaPaymentSerializer(serializers.ModelSerializer):
         if obj.status == 'requested':
             return 'Check your phone and enter your M-Pesa PIN.'
         return result_message(obj.result_code, obj.result_desc)
+
+
+class AgentFarmerSerializer(serializers.ModelSerializer):
+    cooperative_name = serializers.CharField(source='cooperative.name', read_only=True, default=None)
+    live_listings = serializers.IntegerField(read_only=True)
+    waiting_orders = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'uid', 'full_name', 'phone_number', 'city', 'market', 'cooperative_name', 'approval_status',
+            'live_listings', 'waiting_orders',
+        ]
+        read_only_fields = fields
+
+
+class FarmerSummarySerializer(serializers.Serializer):
+    live_listings = serializers.IntegerField()
+    paused_listings = serializers.IntegerField()
+    waiting_orders = serializers.IntegerField()
+    earnings_due = serializers.DecimalField(max_digits=12, decimal_places=2)
+    paid_out = serializers.DecimalField(max_digits=12, decimal_places=2)
+    earned_this_month = serializers.DecimalField(max_digits=12, decimal_places=2)

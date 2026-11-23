@@ -113,6 +113,10 @@ class Product(models.Model):
     ]
 
     farmer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='products')
+    # Who typed it in: the farmer, or a field agent acting for them.
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='products_created',
+    )
     title = models.CharField(max_length=255)
     commodity = models.CharField(max_length=100, blank=True, null=True)
     unit = models.CharField(max_length=10, choices=UNIT_CHOICES)
@@ -128,6 +132,8 @@ class Product(models.Model):
     images = models.JSONField(default=list, blank=True)  # List of image URLs
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    # Removed by the farmer: kept (orders point at it) but hidden from their list.
+    archived = models.BooleanField(default=False)
 
     def __str__(self):
         return self.title

@@ -31,3 +31,5 @@ export type QuoteLine = Schemas["QuoteLine"];
 export type DeliveryAddress = Schemas["DeliveryAddress"];
 export type PaymentChoice = Schemas["PaymentChoiceEnum"];
 export type MpesaPayment = Schemas["MpesaPayment"];
+export type FarmerSummary = Schemas["FarmerSummary"];
+export type AgentFarmer = Schemas["AgentFarmer"];

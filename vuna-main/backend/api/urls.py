@@ -27,6 +27,8 @@ from .views import (
     DriverOrderView,
     DriverUpdateStatusView,
     FarmerEarningsView,
+    FarmerSummaryView,
+    AgentFarmersView,
     ChatMessageView,
     ChatInboxView,
 )
@@ -73,6 +75,8 @@ urlpatterns = [
 
     # Farmer
     path('farmer/earnings/', FarmerEarningsView.as_view(), name='farmer_earnings'),
+    path('farmer/summary/', FarmerSummaryView.as_view(), name='farmer_summary'),
+    path('agent/farmers/', AgentFarmersView.as_view(), name='agent_farmers'),
 
     # Chat
     path('messages/', ChatMessageView.as_view(), name='messages'),
