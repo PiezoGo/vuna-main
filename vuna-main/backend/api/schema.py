@@ -7,7 +7,8 @@ from drf_spectacular.utils import OpenApiParameter, inline_serializer
 from rest_framework import serializers
 
 from .serializers import (
-    ChatMessageSerializer, DriverSerializer, OrderSerializer, ProductSerializer, UserSerializer,
+    ChatMessageSerializer, DriverSerializer, FarmerProfileSerializer, OrderSerializer, ProductSerializer,
+    UserSerializer,
 )
 
 ErrorResponse = inline_serializer('ErrorResponse', {'error': serializers.CharField()})
@@ -22,14 +23,15 @@ LoginRequest = inline_serializer('LoginRequest', {
     'password': serializers.CharField(),
 })
 
-class PublicProfileResponse(UserSerializer):
+class PublicProfileResponse(FarmerProfileSerializer):
     products = ProductSerializer(many=True)
     completed_sales = serializers.IntegerField()
     total_listings = serializers.IntegerField()
 
-    class Meta(UserSerializer.Meta):
+    class Meta(FarmerProfileSerializer.Meta):
         ref_name = 'PublicProfile'
-        fields = UserSerializer.Meta.fields + ['products', 'completed_sales', 'total_listings']
+        fields = FarmerProfileSerializer.Meta.fields + ['products', 'completed_sales', 'total_listings']
+        read_only_fields = fields
 
 MockPayRequest = inline_serializer('MockPayRequest', {'code': serializers.CharField()})
 MockPayResponse = inline_serializer('MockPayResponse', {

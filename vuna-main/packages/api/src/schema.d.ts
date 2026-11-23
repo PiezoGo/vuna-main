@@ -441,6 +441,23 @@ export interface paths {
         patch: operations["products_partial_update"];
         trace?: never;
     };
+    "/api/products/facets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Commodities, cities and markets that have live listings, with counts, for filter menus. */
+        get: operations["products_facets_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/profile/": {
         parameters: {
             query?: never;
@@ -581,6 +598,10 @@ export interface components {
         ErrorResponse: {
             error: string;
         };
+        FacetValue: {
+            value: string;
+            count: number;
+        };
         FarmerApproval: {
             /** Format: uuid */
             readonly uid: string;
@@ -707,6 +728,9 @@ export interface components {
             quantity?: number;
             /** Format: date */
             harvest_date?: string | null;
+            description?: string;
+            /** Format: int64 */
+            min_order_quantity?: number;
             /** Format: int64 */
             delivery_time_manual?: number | null;
             delivery_time_varies?: boolean;
@@ -722,6 +746,7 @@ export interface components {
             readonly farmer_city: string;
             readonly farmer_market: string;
             readonly farmer_phone: string;
+            readonly farmer_cooperative: string;
             title: string;
             commodity?: string | null;
             unit: components["schemas"]["ProductUnitEnum"];
@@ -733,6 +758,9 @@ export interface components {
             quantity: number;
             /** Format: date */
             harvest_date?: string | null;
+            description?: string;
+            /** Format: int64 */
+            min_order_quantity?: number;
             /** Format: int64 */
             delivery_time_manual?: number | null;
             delivery_time_varies?: boolean;
@@ -740,6 +768,11 @@ export interface components {
             /** Format: date-time */
             readonly created_at: string;
             readonly is_active: boolean;
+        };
+        ProductFacets: {
+            commodities: components["schemas"]["FacetValue"][];
+            cities: components["schemas"]["FacetValue"][];
+            markets: components["schemas"]["FacetValue"][];
         };
         ProductRequest: {
             title: string;
@@ -751,6 +784,9 @@ export interface components {
             quantity: number;
             /** Format: date */
             harvest_date?: string | null;
+            description?: string;
+            /** Format: int64 */
+            min_order_quantity?: number;
             /** Format: int64 */
             delivery_time_manual?: number | null;
             delivery_time_varies?: boolean;
@@ -779,31 +815,20 @@ export interface components {
             vehicle_type?: string;
             cooperative?: number | null;
         };
+        /** @description What a signed-in user may see about another user: no email, no account flags. */
         PublicProfile: {
             /** Format: uuid */
             readonly uid: string;
-            /** Format: email */
-            email: string;
-            full_name: string;
+            readonly full_name: string;
             readonly role: components["schemas"]["UserRoleEnum"];
-            phone_number: string;
-            country?: string;
-            city?: string;
-            market?: string;
-            bio?: string;
-            avatar?: string;
-            buyer_type?: (components["schemas"]["BuyerTypeEnum"] | components["schemas"]["BlankEnum"] | components["schemas"]["NullEnum"]) | null;
-            farmer_delivery_time?: string;
-            vehicle_type?: string;
-            readonly is_driver_active: boolean;
-            readonly current_order: number | null;
-            readonly approval_status: components["schemas"]["ApprovalStatusEnum"];
-            readonly rejection_reason: string;
-            readonly must_change_password: boolean;
-            cooperative?: number | null;
+            readonly phone_number: string;
+            readonly city: string;
+            readonly market: string;
+            readonly bio: string;
+            readonly avatar: string;
             readonly cooperative_name: string;
-            /** Format: uuid */
-            readonly agent: string | null;
+            /** Format: date-time */
+            readonly date_joined: string;
             products: components["schemas"]["Product"][];
             completed_sales: number;
             total_listings: number;
@@ -1832,6 +1857,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Product"];
+                };
+            };
+        };
+    };
+    products_facets_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductFacets"];
                 };
             };
         };

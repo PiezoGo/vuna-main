@@ -120,6 +120,9 @@ class Product(models.Model):
     listed_price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     quantity = models.PositiveIntegerField()
     harvest_date = models.DateField(null=True, blank=True)
+    description = models.TextField(blank=True, default='')
+    # Smallest quantity a buyer may order, in this product's unit.
+    min_order_quantity = models.PositiveIntegerField(default=1)
     delivery_time_manual = models.PositiveIntegerField(blank=True, null=True)
     delivery_time_varies = models.BooleanField(default=False)
     images = models.JSONField(default=list, blank=True)  # List of image URLs

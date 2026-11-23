@@ -108,13 +108,15 @@ class ProductSerializer(serializers.ModelSerializer):
     farmer_market = serializers.ReadOnlyField(source='farmer.market')
     farmer_phone = serializers.ReadOnlyField(source='farmer.phone_number')
     farmer_uid = serializers.ReadOnlyField(source='farmer.uid')
+    farmer_cooperative = serializers.CharField(source='farmer.cooperative.name', read_only=True, default=None)
 
     class Meta:
         model = Product
         fields = [
             'id', 'farmer', 'farmer_uid', 'farmer_name', 'farmer_city',
-            'farmer_market', 'farmer_phone',
+            'farmer_market', 'farmer_phone', 'farmer_cooperative',
             'title', 'commodity', 'unit', 'base_price_per_unit', 'listed_price_per_unit', 'quantity', 'harvest_date',
+            'description', 'min_order_quantity',
             'delivery_time_manual', 'delivery_time_varies', 'images',
             'created_at', 'is_active'
         ]
@@ -123,6 +125,11 @@ class ProductSerializer(serializers.ModelSerializer):
     def validate_base_price_per_unit(self, value):
         if value <= 0:
             raise serializers.ValidationError('Price must be greater than zero.')
+        return value
+
+    def validate_min_order_quantity(self, value):
+        if value < 1:
+            raise serializers.ValidationError('The minimum order must be at least 1.')
         return value
 
     def to_representation(self, instance):
@@ -260,3 +267,27 @@ class FarmerApprovalSerializer(serializers.ModelSerializer):
 
 class RejectFarmerSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=255)
+
+
+class FarmerProfileSerializer(serializers.ModelSerializer):
+    """What a signed-in user may see about another user: no email, no account flags."""
+    cooperative_name = serializers.CharField(source='cooperative.name', read_only=True, default=None)
+
+    class Meta:
+        model = User
+        fields = [
+            'uid', 'full_name', 'role', 'phone_number', 'city', 'market', 'bio', 'avatar',
+            'cooperative_name', 'date_joined',
+        ]
+        read_only_fields = fields
+
+
+class FacetValueSerializer(serializers.Serializer):
+    value = serializers.CharField()
+    count = serializers.IntegerField()
+
+
+class ProductFacetsSerializer(serializers.Serializer):
+    commodities = FacetValueSerializer(many=True)
+    cities = FacetValueSerializer(many=True)
+    markets = FacetValueSerializer(many=True)

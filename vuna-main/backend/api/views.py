@@ -1,9 +1,11 @@
 import uuid as uuid_lib
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Min, Q
+from django.db.models.functions import Lower
 from django.core.files.storage import default_storage
 from rest_framework import filters, mixins, viewsets, permissions, status
+from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
@@ -21,6 +23,8 @@ from .permissions import IsAdmin, IsBuyer, IsDriver, IsFarmer, IsProductOwnerOrA
 from .pricing import listed_price, price_order
 from .serializers import (
     UserSerializer,
+    FarmerProfileSerializer,
+    ProductFacetsSerializer,
     ProfileUpdateSerializer,
     RegisterSerializer,
     ProductSerializer,
@@ -120,15 +124,17 @@ class PublicProfileView(APIView):
         except User.DoesNotExist:
             return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        products = Product.objects.filter(farmer=user, is_active=True).order_by('-created_at')
+        products = Product.objects.filter(
+            farmer=user, is_active=True, farmer__approval_status='approved',
+        ).select_related('farmer__cooperative').order_by('-created_at')
         product_data = ProductSerializer(products, many=True, context={'request': request}).data
 
         completed_sales = Order.objects.filter(farmer=user, status='completed').count()
 
-        profile_data = UserSerializer(user).data
+        profile_data = FarmerProfileSerializer(user).data
         profile_data['products'] = product_data
         profile_data['completed_sales'] = completed_sales
-        profile_data['total_listings'] = products.count()
+        profile_data['total_listings'] = len(product_data)
 
         return Response(profile_data)
 
@@ -157,6 +163,8 @@ class ProductViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
 
     def get_permissions(self):
+        if self.action == 'facets':
+            return [permissions.AllowAny()]
         if self.action in ('list', 'retrieve') and not self._wants_my_listings():
             return [permissions.AllowAny()]
         if self.action == 'create':
@@ -169,13 +177,16 @@ class ProductViewSet(viewsets.ModelViewSet):
         return self.request.query_params.get('my_listings') == 'true'
 
     def get_queryset(self):
-        queryset = Product.objects.select_related('farmer')
+        queryset = Product.objects.select_related('farmer', 'farmer__cooperative')
 
         if self._wants_my_listings():
             queryset = queryset.filter(farmer=self.request.user)
         elif self.action in ('list', 'retrieve'):
             # Marketplace feed: only active listings from approved farmers
             queryset = queryset.filter(is_active=True, farmer__approval_status='approved')
+            if self.action == 'list':
+                # The market only lists what can be bought; a sold-out product page still opens.
+                queryset = queryset.filter(quantity__gt=0)
         # update/destroy: all products; ownership is checked per object
 
         params = self.request.query_params
@@ -189,6 +200,26 @@ class ProductViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(harvest_date=params['harvest_date'])
 
         return queryset
+
+    @extend_schema(responses=ProductFacetsSerializer)
+    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny], pagination_class=None)
+    def facets(self, request):
+        """Commodities, cities and markets that have live listings, with counts, for filter menus."""
+        live = Product.objects.filter(is_active=True, quantity__gt=0, farmer__approval_status='approved')
+
+        def counts(field):
+            rows = (
+                live.exclude(**{f'{field}__isnull': True}).exclude(**{field: ''})
+                .annotate(key=Lower(field)).values('key')
+                .annotate(count=Count('id'), value=Min(field)).order_by('-count', 'key')
+            )
+            return [{'value': r['value'].strip(), 'count': r['count']} for r in rows]
+
+        return Response({
+            'commodities': counts('commodity'),
+            'cities': counts('farmer__city'),
+            'markets': counts('farmer__market'),
+        })
 
     def paginate_queryset(self, queryset):
         # A farmer's own listings are a short management list; keep it unpaginated.
