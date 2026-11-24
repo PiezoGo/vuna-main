@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
 import * as React from "react";
 
+import { LiveConnection } from "@/components/notifications/live-connection";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ApiError } from "@/lib/api/errors";
@@ -32,6 +33,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
         <MotionConfig reducedMotion="user">
           <TooltipProvider delayDuration={200}>
             {children}
+            <LiveConnection />
             <Toaster />
           </TooltipProvider>
         </MotionConfig>

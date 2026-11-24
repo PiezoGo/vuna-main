@@ -9,6 +9,8 @@ import { z } from "zod";
 const publicSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.url().default("http://localhost:3000"),
   NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: z.string().default(""),
+  /** Live connection to Django, e.g. wss://vuna-main.onrender.com/ws/. Empty = no live updates (60 s checks). */
+  NEXT_PUBLIC_WS_URL: z.union([z.literal(""), z.url()]).default(""),
 });
 
 const serverSchema = z.object({
@@ -52,6 +54,7 @@ export const publicEnv = parse(
   {
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
     NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME,
+    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL,
   },
   "public",
 );
