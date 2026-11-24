@@ -1,6 +1,16 @@
 "use client";
 
-import { Clock, HandCoins, RotateCcw, Timer, TrendingUp, Truck, UserCheck } from "lucide-react";
+import {
+  Clock,
+  HandCoins,
+  PackageCheck,
+  RotateCcw,
+  Timer,
+  TrendingUp,
+  TriangleAlert,
+  Truck,
+  UserCheck,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -16,7 +26,7 @@ export function AdminOverview() {
   if (isPending) {
     return (
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Loading overview">
-        {Array.from({ length: 8 }, (_, i) => (
+        {Array.from({ length: 10 }, (_, i) => (
           <Skeleton key={i} className="h-32 rounded-2xl" />
         ))}
       </div>
@@ -59,6 +69,21 @@ export function AdminOverview() {
       tone: data.refunds_to_send > 0 ? "warning" : undefined,
     },
     { icon: Truck, label: "Trips today", value: String(data.trips_today), href: "/admin/trips" },
+    {
+      icon: TriangleAlert,
+      label: "Problems reported",
+      value: String(data.problems_open),
+      href: "/admin/problems",
+      tone: data.problems_open > 0 ? "danger" : undefined,
+    },
+    {
+      icon: PackageCheck,
+      label: "Delivered, not confirmed for 24 h+",
+      value: String(data.unconfirmed_over_24h),
+      href: "/admin/orders?status=delivered",
+      tone: data.unconfirmed_over_24h > 0 ? "warning" : undefined,
+      note: "Call the buyer to confirm",
+    },
     {
       icon: Clock,
       label: "Waiting for farmers",

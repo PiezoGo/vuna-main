@@ -7,6 +7,7 @@ import * as React from "react";
 import { PayoutCountdown } from "@/components/admin/payout-countdown";
 import { ListSkeleton, QueryError } from "@/components/admin/query-state";
 import { RecordReferenceDialog } from "@/components/admin/record-reference-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { usePayouts } from "@/features/admin/money-queries";
@@ -42,6 +43,7 @@ function PayoutRow({ line }: { line: PayoutLine }) {
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-semibold">{line.farmer_name}</p>
           <PayoutCountdown dueBy={line.due_by} />
+          {line.on_hold ? <Badge variant="warning">On hold: buyer reported a problem</Badge> : null}
         </div>
         <a
           href={`tel:+${line.farmer_phone}`}
@@ -55,7 +57,14 @@ function PayoutRow({ line }: { line: PayoutLine }) {
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3 sm:flex-col sm:items-end">
-        <p className="text-lg font-semibold">{formatKES(line.farmer_earnings)}</p>
+        <div className="grid text-right">
+          <p className="text-lg font-semibold">{formatKES(line.amount_to_send)}</p>
+          {Number(line.deduction) > 0 ? (
+            <p className="text-[12px] text-muted-foreground">
+              {formatKES(line.farmer_earnings)} less {formatKES(line.deduction)} refunds
+            </p>
+          ) : null}
+        </div>
         <Button variant="mpesa" size="sm" onClick={() => setOpen(true)}>
           Record payout
         </Button>
@@ -68,7 +77,7 @@ function PayoutRow({ line }: { line: PayoutLine }) {
         title={`Record payout to ${line.farmer_name}`}
         description={
           <>
-            Send {formatKES(line.farmer_earnings)} by M-Pesa to {formatKePhone(line.farmer_phone)},
+            Send {formatKES(line.amount_to_send)} by M-Pesa to {formatKePhone(line.farmer_phone)},
             then enter the reference here.
           </>
         }

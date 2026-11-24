@@ -53,7 +53,14 @@ export function FarmerEarnings() {
               <Badge variant={o.farmer_paid ? "success" : "warning"}>
                 {o.farmer_paid ? "Paid out" : "Due"}
               </Badge>
-              <span className="w-28 text-right font-semibold">{formatKES(o.farmer_earnings)}</span>
+              <span className="grid w-32 text-right">
+                <span className="font-semibold">{formatKES(o.farmer_earnings)}</span>
+                {Number(o.payout_deduction) > 0 ? (
+                  <span className="text-[12px] text-destructive">
+                    − {formatKES(o.payout_deduction)} refund taken off
+                  </span>
+                ) : null}
+              </span>
             </li>
           ))}
         </ul>

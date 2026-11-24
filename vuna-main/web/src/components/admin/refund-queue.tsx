@@ -54,11 +54,11 @@ function RefundRow({ line }: { line: RefundLine }) {
         <p className="text-sm text-muted-foreground">
           Order #{line.id} · {line.quantity} × {line.product_title} · ordered{" "}
           {formatDate(line.created_at)}
-          {line.payment_reference ? ` · paid with ${line.payment_reference}` : ""}
+          {line.payment_reference ? ` · paid with ${line.payment_reference}` : ""} · {line.reason}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-3 sm:flex-col sm:items-end">
-        <p className="text-lg font-semibold">{formatKES(line.total_price)}</p>
+        <p className="text-lg font-semibold">{formatKES(line.amount)}</p>
         <Button variant="mpesa" size="sm" onClick={() => setOpen(true)}>
           Record refund
         </Button>
@@ -71,8 +71,8 @@ function RefundRow({ line }: { line: RefundLine }) {
         title={`Record refund to ${line.buyer_name}`}
         description={
           <>
-            Send {formatKES(line.total_price)} back by M-Pesa to {formatKePhone(line.buyer_phone)},
-            then enter the reference here.
+            Send {formatKES(line.amount)} back by M-Pesa to {formatKePhone(line.buyer_phone)}, then
+            enter the reference here.
           </>
         }
       />
