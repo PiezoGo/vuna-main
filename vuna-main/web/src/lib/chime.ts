@@ -54,3 +54,17 @@ export function playChime(): void {
     console.warn("[chime] couldn't play", error);
   }
 }
+
+let ringTimer: ReturnType<typeof setInterval> | undefined;
+
+/** Repeat the chime as a ringtone until stopRingtone() (silent when muted). */
+export function startRingtone(): void {
+  stopRingtone();
+  playChime();
+  ringTimer = setInterval(playChime, 1_600);
+}
+
+export function stopRingtone(): void {
+  clearInterval(ringTimer);
+  ringTimer = undefined;
+}

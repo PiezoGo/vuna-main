@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
 import * as React from "react";
 
+import { CallOverlay } from "@/components/call/call-overlay";
 import { LiveConnection } from "@/components/notifications/live-connection";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -34,6 +35,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           <TooltipProvider delayDuration={200}>
             {children}
             <LiveConnection />
+            <CallOverlay />
             <Toaster />
           </TooltipProvider>
         </MotionConfig>

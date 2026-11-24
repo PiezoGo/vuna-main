@@ -6,6 +6,7 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import { publicEnv } from "@/config/env";
+import { handleCallEvent } from "@/features/calls/handle-event";
 import { chatKeys } from "@/features/chat/queries";
 import { deliveryKeys } from "@/features/delivery/queries";
 import { notificationKeys } from "@/features/notifications/queries";
@@ -55,6 +56,11 @@ export function useLiveConnection(userId: string | null) {
           if (fromOther && pathRef.current !== `/messages/${event.partner}`) playChime();
           break;
         }
+        case "call":
+          handleCallEvent(event);
+          if (event.event === "missed")
+            void queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+          break;
         case "read":
           void queryClient.invalidateQueries({ queryKey: chatKeys.conversation(event.partner) });
           break;
