@@ -37,6 +37,7 @@ from .delivery_views import (
 )
 from .notification_views import NotificationListView, NotificationReadView, NotificationSummaryView, RealtimeTicketView
 from .chat_views import ConversationView, InboxView
+from .call_views import CallAcceptView, CallCheckView, CallHangUpView, CallStartView
 from .checkout_views import CheckoutViewSet, DeliveryAddressViewSet, MpesaCallbackView, PaymentDetailView, QuoteView
 from .views import (
     RegisterView,
@@ -114,6 +115,10 @@ urlpatterns = [
     path('notifications/summary/', NotificationSummaryView.as_view(), name='notification_summary'),
     path('notifications/read/', NotificationReadView.as_view(), name='notification_read'),
     path('realtime/ticket/', RealtimeTicketView.as_view(), name='realtime_ticket'),
+    path('calls/', CallStartView.as_view(), name='call_start'),
+    path('calls/check/<uuid:uid>/', CallCheckView.as_view(), name='call_check'),
+    path('calls/<uuid:pk>/accept/', CallAcceptView.as_view(), name='call_accept'),
+    path('calls/<uuid:pk>/hang-up/', CallHangUpView.as_view(), name='call_hang_up'),
     path('messages/inbox/', InboxView.as_view(), name='chat_inbox_v2'),
     path('messages/with/<uuid:uid>/', ConversationView.as_view(), name='chat_conversation'),
 

@@ -467,6 +467,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/calls/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["calls_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calls/{id}/accept/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["calls_accept_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calls/{id}/hang-up/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Decline, cancel or end, depending on who and when. */
+        post: operations["calls_hang_up_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calls/check/{uid}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Whether to show a call button for this person, and whether it would ring. */
+        get: operations["calls_check_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/checkouts/": {
         parameters: {
             query?: never;
@@ -1235,6 +1301,70 @@ export interface components {
          * @enum {string}
          */
         BuyerTypeEnum: "hotel" | "retailer" | "wholesaler";
+        Call: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly kind: components["schemas"]["CallKindEnum"];
+            readonly status: components["schemas"]["CallStatusEnum"];
+            readonly caller: components["schemas"]["CallPerson"];
+            readonly callee: components["schemas"]["CallPerson"];
+            readonly order: number | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly answered_at: string | null;
+            /** Format: date-time */
+            readonly ended_at: string | null;
+        };
+        CallCheck: {
+            /** @description Calls are set up (LiveKit settings present) */
+            enabled: boolean;
+            /** @description You may call this person */
+            allowed: boolean;
+            /** @description They have the site open (it can ring) */
+            online: boolean;
+        };
+        /** @description What the browser needs to join the LiveKit room. The token is for this person and this room only. */
+        CallJoin: {
+            call: components["schemas"]["Call"];
+            url: string;
+            token: string;
+            callee_online: boolean;
+        };
+        /**
+         * @description * `audio` - Audio
+         *     * `video` - Video
+         * @enum {string}
+         */
+        CallKindEnum: "audio" | "video";
+        CallPerson: {
+            /** Format: uuid */
+            readonly uid: string;
+            readonly full_name: string;
+            readonly role: components["schemas"]["UserRoleEnum"];
+        };
+        /**
+         * @description * `audio` - audio
+         *     * `video` - video
+         * @enum {string}
+         */
+        CallStartKindEnum: "audio" | "video";
+        CallStartRequest: {
+            /** Format: uuid */
+            callee: string;
+            /** @default audio */
+            kind: components["schemas"]["CallStartKindEnum"];
+            order?: number | null;
+        };
+        /**
+         * @description * `ringing` - Ringing
+         *     * `answered` - Answered
+         *     * `declined` - Declined
+         *     * `missed` - Missed
+         *     * `ended` - Ended
+         * @enum {string}
+         */
+        CallStatusEnum: "ringing" | "answered" | "declined" | "missed" | "ended";
         CartItemRequest: {
             product: number;
             quantity: number;
@@ -2069,6 +2199,10 @@ export interface components {
             readonly quantity: number;
             readonly unit: components["schemas"]["ProductUnitEnum"];
             readonly product_title: string;
+            /** Format: uuid */
+            readonly farmer: string;
+            /** Format: uuid */
+            readonly buyer: string;
             readonly farmer_name: string;
             readonly farmer_phone: string;
             readonly farmer_city: string;
@@ -3246,6 +3380,150 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    calls_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CallStartRequest"];
+                "multipart/form-data": components["schemas"]["CallStartRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["CallStartRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallJoin"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    calls_accept_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallJoin"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    calls_hang_up_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Call"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    calls_check_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallCheck"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

@@ -4,7 +4,8 @@ from decimal import Decimal
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from .models import (
-    ChatMessage, Checkout, Cooperative, DeliveryAddress, MpesaPayment, Notification, Order, Problem, Product, Trip, User,
+    Call, ChatMessage, Checkout, Cooperative, DeliveryAddress, MpesaPayment, Notification, Order, Problem, Product, Trip,
+    User,
 )
 from .phone import normalize_ke_phone
 
@@ -501,7 +502,7 @@ class TripStopSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            'id', 'stop_order', 'status', 'quantity', 'unit', 'product_title',
+            'id', 'stop_order', 'status', 'quantity', 'unit', 'product_title', 'farmer', 'buyer',
             'farmer_name', 'farmer_phone', 'farmer_city', 'farmer_market',
             'buyer_name', 'contact_name', 'contact_phone', 'area', 'details', 'landmark',
             'collected_at', 'delivered_at', 'pickup_photo', 'pickup_condition', 'delivery_photo',
@@ -770,3 +771,40 @@ class ConversationSerializer(serializers.Serializer):
 
 class ChatSendSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=2000, trim_whitespace=True)
+
+
+class CallPersonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['uid', 'full_name', 'role']
+        read_only_fields = fields
+
+
+class CallSerializer(serializers.ModelSerializer):
+    caller = CallPersonSerializer(read_only=True)
+    callee = CallPersonSerializer(read_only=True)
+
+    class Meta:
+        model = Call
+        fields = ['id', 'kind', 'status', 'caller', 'callee', 'order', 'created_at', 'answered_at', 'ended_at']
+        read_only_fields = fields
+
+
+class CallStartSerializer(serializers.Serializer):
+    callee = serializers.UUIDField()
+    kind = serializers.ChoiceField(choices=['audio', 'video'], default='audio')
+    order = serializers.IntegerField(required=False, allow_null=True)
+
+
+class CallJoinSerializer(serializers.Serializer):
+    """What the browser needs to join the LiveKit room. The token is for this person and this room only."""
+    call = CallSerializer()
+    url = serializers.CharField()
+    token = serializers.CharField()
+    callee_online = serializers.BooleanField()
+
+
+class CallCheckSerializer(serializers.Serializer):
+    enabled = serializers.BooleanField(help_text='Calls are set up (LiveKit settings present)')
+    allowed = serializers.BooleanField(help_text='You may call this person')
+    online = serializers.BooleanField(help_text='They have the site open (it can ring)')

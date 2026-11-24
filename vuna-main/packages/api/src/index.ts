@@ -52,3 +52,6 @@ export type ChatPartner = Schemas["ChatPartner"];
 export type ChatLine = Schemas["ChatLine"];
 export type InboxItem = Schemas["InboxItem"];
 export type Conversation = Schemas["Conversation"];
+export type Call = Schemas["Call"];
+export type CallJoin = Schemas["CallJoin"];
+export type CallCheck = Schemas["CallCheck"];

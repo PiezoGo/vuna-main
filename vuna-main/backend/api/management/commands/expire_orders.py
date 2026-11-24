@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from api.checkout import expire_stale
+from api.calls import sweep_stale
 from api.notifications import prune
 
 
@@ -13,4 +14,5 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         count = expire_stale()
         pruned = prune()
+        sweep_stale()
         self.stdout.write(self.style.SUCCESS(f'Expired {count} order line(s); removed {pruned} old notification(s).'))

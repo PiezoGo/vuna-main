@@ -5,12 +5,13 @@ token itself never reaches browser JavaScript). Events are forwarded as JSON.
 """
 from urllib.parse import parse_qs
 
+from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.core import signing
 from django.core.cache import cache
 
-from . import realtime
+from . import calls, realtime
 from .models import User
 
 TICKET_SALT = 'vuna.ws-ticket'
@@ -46,9 +47,13 @@ class LiveConsumer(AsyncJsonWebsocketConsumer):
         for group in self.groups_joined:
             await self.channel_layer.group_add(group, self.channel_name)
         await self.accept()
+        self.user_id = user.pk
+        await sync_to_async(calls.went_online)(user.pk)  # so callers know whether it can ring
         await self.send_json({'type': 'hello'})
 
     async def disconnect(self, code):
+        if getattr(self, 'user_id', None):
+            await sync_to_async(calls.went_offline)(self.user_id)
         for group in getattr(self, 'groups_joined', []):
             await self.channel_layer.group_discard(group, self.channel_name)
 

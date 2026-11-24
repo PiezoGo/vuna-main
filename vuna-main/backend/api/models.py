@@ -332,6 +332,36 @@ class Notification(models.Model):
         indexes = [models.Index(fields=['user', 'read_at'])]
 
 
+class Call(models.Model):
+    """An in-app audio/video call between two people (Module 11). Media goes through LiveKit."""
+    KIND_CHOICES = [('audio', 'Audio'), ('video', 'Video')]
+    STATUS_CHOICES = [
+        ('ringing', 'Ringing'),
+        ('answered', 'Answered'),
+        ('declined', 'Declined'),
+        ('missed', 'Missed'),
+        ('ended', 'Ended'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    caller = models.ForeignKey(User, on_delete=models.CASCADE, related_name='calls_made')
+    callee = models.ForeignKey(User, on_delete=models.CASCADE, related_name='calls_received')
+    kind = models.CharField(max_length=5, choices=KIND_CHOICES, default='audio')
+    order = models.ForeignKey('Order', on_delete=models.SET_NULL, null=True, blank=True, related_name='calls')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='ringing')
+    created_at = models.DateTimeField(auto_now_add=True)
+    answered_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['callee', 'status']), models.Index(fields=['status', 'created_at'])]
+
+    @property
+    def room(self) -> str:
+        return f'call-{self.id.hex}'
+
+
 class MpesaPayment(models.Model):
     """One M-Pesa Express (STK Push) prompt for a checkout."""
     STATUS_CHOICES = [
