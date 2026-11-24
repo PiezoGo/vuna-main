@@ -1,6 +1,6 @@
 # Module 11: Calls (audio, optional video)
 
-Status: **plan, waiting for approval**. Branch `refine`. Builds on Module 10 (the live connection rings the other person) and the migration plan's choice: **LiveKit Cloud** carries the audio/video, Django decides who may call whom.
+Status: **approved Nov 24 (all five recommendations), built**. Branch `refine`. Builds on Module 10 (the live connection rings the other person) and the migration plan's choice: **LiveKit Cloud** carries the audio/video, Django decides who may call whom.
 
 ## Goal
 Buyers, farmers, drivers and VUNA staff can call each other from inside the site, so nobody has to share or dial numbers: a call button in a conversation and on each delivery stop, the other person's screen rings with accept or decline, and a missed call shows in their bell and the chat. Calls start as **audio** (light on mobile data); either side can turn on video.
@@ -89,3 +89,27 @@ Group calls, call recording, screen sharing, calling a real phone number from th
 - [ ] Driver calls the buyer from a drop-off and the farmer from a pickup
 - [ ] Without LiveKit settings, call buttons are hidden and nothing else breaks
 - [ ] With the live connection down, the caller sees "not online" with the message and phone options
+
+## Decisions (answered Nov 24)
+1. Buyer ↔ farmer calls only once they share an order; they can chat before that.
+2. Drivers call the farmer (pickup) and the buyer (drop-off) on their own trips.
+3. Audio first, with a Video button.
+4. 30 seconds of ringing, then "missed".
+5. No separate call-history page: calls are lines in the chat; missed calls are bell items.
+
+## Done
+**Backend** (`api/calls.py`, `api/call_views.py`, migration `0014_calls`)
+- `Call` model; `can_call()`; LiveKit access tokens made with the standard library (HS256, one room, one person, 10 minutes to join); presence (who has a live connection open) so callers know whether it can ring.
+- `GET /api/calls/check/{uid}/` (show the button?), `POST /api/calls/` (ring), `POST /api/calls/{id}/accept/`, `POST /api/calls/{id}/hang-up/` (decline, cancel → missed, or end). Ringing calls older than 30 s become missed on the next call request and in the `expire_orders` cron.
+- Live `call` events (incoming, accepted, declined, missed, ended); missed-call bell item linking to the conversation; chat lines "Missed audio call" and "Audio call · 3 min".
+- Row locks on `Call` without joins (PostgreSQL-safe). Driver stops now include the farmer's and buyer's ids.
+- Tests: `api/tests/test_calls.py`.
+
+**Web** (`components/call/`, `features/calls/`)
+- Call and Video buttons in conversations, on driver stops, on the buyer's order line (call the driver) and on the farmer's incoming orders (call the buyer). Hidden unless calls are set up and allowed.
+- Full-screen incoming call with ringtone (respects mute), outgoing ringing with a 30-second limit and a "not online, send a message instead" note, the call screen (mute, camera on/off at 360p, timer, hang up), and "Call ended / declined / No answer".
+- `livekit-client` (2.25) is loaded only when a call connects (`next/dynamic`).
+
+**Not done:** speakerphone switching (browsers don't let a site choose the earpiece vs speaker reliably), ringing while the site is closed (web push, later).
+
+**Setup:** see "What you set up" above. Calls need Module 10's live connection switched on (uvicorn start command, `NEXT_PUBLIC_WS_URL`); run `migrate` on deploy (0014).
