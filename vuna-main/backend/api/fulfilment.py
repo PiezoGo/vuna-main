@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
+from . import events
 from .models import Order, OrderEvent, Problem, Trip, User
 
 PAYOUT_PROMISE_HOURS = 4
@@ -61,6 +62,7 @@ def create_trip(*, actor: User, delivery_date, driver: User, order_ids: list[int
         order.status = 'assigned'
         order.save(update_fields=['trip', 'stop_order', 'driver', 'status'])
         log(order, 'assigned', actor, f'Trip #{trip.id} with {driver.full_name}')
+    events.trip_assigned(trip, orders)
     return trip
 
 
@@ -93,6 +95,10 @@ def set_trip_orders(*, actor: User, trip: Trip, order_ids: list[int]) -> Trip:
     if not order_ids:
         trip.status = 'cancelled'
         trip.save(update_fields=['status'])
+    if added:
+        events.trip_assigned(trip, added)
+    else:
+        events.trip_changed(trip, cancelled=not order_ids)
     return trip
 
 
@@ -113,6 +119,7 @@ def cancel_trip(*, actor: User, trip: Trip) -> Trip:
         _unschedule(order, actor, f'Trip #{trip.id} cancelled')
     trip.status = 'cancelled'
     trip.save(update_fields=['status'])
+    events.trip_changed(trip, cancelled=True)
     return trip
 
 
@@ -136,6 +143,10 @@ def advance(*, actor: User, order: Order, to: str, note: str = '') -> Order:
         fields.append('delivered_at')
     order.save(update_fields=fields)
     log(order, to, actor, note)
+    if to == 'collected':
+        events.collected(order)
+    elif to == 'delivered':
+        events.delivered(order)
 
     trip = order.trip
     if trip and trip.status != 'cancelled':
@@ -197,6 +208,7 @@ def record_payout(*, actor: User, order: Order, reference: str) -> Order:
     Problem.objects.filter(pk__in=[p.pk for p in line.deduction_problems]).update(deducted_on=order)
     note = f' less KSh {line.deduction} for refunds' if line.deduction else ''
     log(order, 'paid_out', actor, f'Payout {order.payout_reference}{note}')
+    events.payout_sent(order)
     return order
 
 
@@ -209,4 +221,5 @@ def record_refund(*, actor: User, order: Order, reference: str) -> Order:
     order.refunded_at = timezone.now()
     order.save(update_fields=['refund_reference', 'refunded_at'])
     log(order, 'refund_sent', actor, f'Refund {order.refund_reference}')
+    events.refund_sent(order)
     return order

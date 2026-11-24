@@ -8,6 +8,7 @@ Layout of `api/`:
 - `fulfilment.py`: after payment: delivery trips, fulfilment steps (logged as `OrderEvent`), farmer payouts (4-hour promise) and buyer refunds
 - `admin_views.py`: the admin operations endpoints (`/api/admin/overview/`, trips, payouts, refunds, user deactivate, agent links)
 - `delivery.py` + `delivery_views.py`: driver trips and stops (collect/deliver with photos), buyer confirmation and problem reports, the per-delivery chat, and the admin problems queue (Module 9)
+- `notifications.py`, `events.py`, `realtime.py`, `consumers.py`, `chat.py` (+ `notification_views.py`, `chat_views.py`): bell items, badge counts, live events over Channels (`/ws/`, in-memory layer: the server must run as ONE uvicorn process) and chat rules (Module 10). Call `events.*` at new business moments; never let a notification break the action
 - `pricing.py`: **the only place prices and fees are calculated** (`listed_price`, `price_order`)
 - `schema.py`: documentation-only serializers for hand-written `APIView`s (OpenAPI)
 - `tests/`: one file per area (`test_products.py`, `test_orders.py`…)
@@ -19,4 +20,4 @@ Rules:
 - Every new or changed endpoint gets a serializer, a test in `api/tests/`, and appears in the drf-spectacular schema (`/api/schema/`). `APIView` methods need an `@extend_schema(...)` using shapes from `api/schema.py`. `python manage.py spectacular --validate --file /dev/null` must report 0 errors. Then run `pnpm api:generate` at the repo root.
 - Migrations are committed. `db.sqlite3` is never committed.
 
-Commands: `python manage.py runserver`, `python manage.py test api`, `python manage.py makemigrations api`.
+Commands: `python manage.py runserver` (HTTP only; for the live socket run `uvicorn backend.asgi:application --port 8000`), `python manage.py test api`, `python manage.py makemigrations api`.

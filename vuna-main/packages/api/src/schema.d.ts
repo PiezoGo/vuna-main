@@ -744,6 +744,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/messages/inbox/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["messages_inbox_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/messages/with/{uid}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET: messages with one person (marks theirs read). POST: send them a message. */
+        get: operations["messages_with_retrieve"];
+        put?: never;
+        /** @description GET: messages with one person (marks theirs read). POST: send them a message. */
+        post: operations["messages_with_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["notifications_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Mark some bell items read (`ids`), or all of them when `ids` is left out. */
+        post: operations["notifications_read_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/summary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["notifications_summary_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/orders/": {
         parameters: {
             query?: never;
@@ -1056,6 +1139,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/realtime/ticket/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["realtime_ticket_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/register/": {
         parameters: {
             query?: never;
@@ -1123,6 +1222,10 @@ export interface components {
             token: string;
             user: components["schemas"]["User"];
         };
+        Badge: {
+            count: number;
+            urgent: boolean;
+        };
         /** @enum {unknown} */
         BlankEnum: "";
         /**
@@ -1144,6 +1247,19 @@ export interface components {
             partner: components["schemas"]["User"];
             last_message: components["schemas"]["ChatMessage"];
         };
+        ChatLine: {
+            readonly id: number;
+            /** Format: uuid */
+            readonly sender: string;
+            readonly sender_name: string;
+            /** Format: uuid */
+            readonly receiver: string;
+            readonly message: string;
+            readonly order: number | null;
+            /** Format: date-time */
+            readonly timestamp: string;
+            readonly is_read: boolean;
+        };
         ChatMessage: {
             readonly id: number;
             /** Format: uuid */
@@ -1156,6 +1272,18 @@ export interface components {
             /** Format: date-time */
             readonly timestamp: string;
             readonly is_read: boolean;
+        };
+        /** @description Who you're talking to: no email, no account flags. */
+        ChatPartner: {
+            /** Format: uuid */
+            readonly uid: string;
+            readonly full_name: string;
+            readonly role: components["schemas"]["UserRoleEnum"];
+            readonly city: string;
+            readonly avatar: string;
+        };
+        ChatSendRequest: {
+            message: string;
         };
         Checkout: {
             readonly id: number;
@@ -1202,6 +1330,11 @@ export interface components {
          * @enum {string}
          */
         ConditionEnum: "good" | "issue";
+        Conversation: {
+            partner: components["schemas"]["ChatPartner"];
+            can_send: boolean;
+            messages: components["schemas"]["ChatLine"][];
+        };
         Cooperative: {
             readonly id: number;
             name: string;
@@ -1329,6 +1462,11 @@ export interface components {
             /** Format: decimal */
             earned_this_month: string;
         };
+        InboxItem: {
+            partner: components["schemas"]["ChatPartner"];
+            last_message: components["schemas"]["ChatLine"];
+            unread: number;
+        };
         LoginRequestRequest: {
             /** Format: email */
             email: string;
@@ -1362,6 +1500,27 @@ export interface components {
          * @enum {string}
          */
         MpesaPaymentStatusEnum: "requested" | "paid" | "failed";
+        Notification: {
+            readonly id: number;
+            readonly kind: string;
+            readonly title: string;
+            readonly body: string;
+            readonly link: string;
+            /** Format: date-time */
+            readonly read_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
+        NotificationSummary: {
+            /** @description Keyed by the sidebar link, e.g. "/farmer/orders" */
+            badges: {
+                [key: string]: components["schemas"]["Badge"];
+            };
+            /** @description Unread bell items */
+            unread: number;
+            /** @description Unread chat messages */
+            messages: number;
+        };
         /** @enum {unknown} */
         NullEnum: null;
         Order: {
@@ -1792,6 +1951,13 @@ export interface components {
         };
         QuoteRequestRequest: {
             items: components["schemas"]["CartItemRequest"][];
+        };
+        ReadIdsRequest: {
+            ids?: number[];
+        };
+        RealtimeTicket: {
+            /** @description One-time, valid 60 seconds: wss://<backend>/ws/?ticket=… */
+            ticket: string;
         };
         ReferenceRequest: {
             reference: string;
@@ -3608,6 +3774,168 @@ export interface operations {
             };
         };
     };
+    messages_inbox_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxItem"][];
+                };
+            };
+        };
+    };
+    messages_with_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    messages_with_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatSendRequest"];
+                "multipart/form-data": components["schemas"]["ChatSendRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ChatSendRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatLine"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    notifications_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"][];
+                };
+            };
+        };
+    };
+    notifications_read_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReadIdsRequest"];
+                "multipart/form-data": components["schemas"]["ReadIdsRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReadIdsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSummary"];
+                };
+            };
+        };
+    };
+    notifications_summary_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationSummary"];
+                };
+            };
+        };
+    };
     orders_list: {
         parameters: {
             query?: {
@@ -4306,6 +4634,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    realtime_ticket_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RealtimeTicket"];
                 };
             };
         };

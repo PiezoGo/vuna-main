@@ -3,7 +3,9 @@ from decimal import Decimal
 
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from .models import ChatMessage, Checkout, Cooperative, DeliveryAddress, MpesaPayment, Order, Problem, Product, Trip, User
+from .models import (
+    ChatMessage, Checkout, Cooperative, DeliveryAddress, MpesaPayment, Notification, Order, Problem, Product, Trip, User,
+)
 from .phone import normalize_ke_phone
 
 
@@ -709,3 +711,62 @@ class DeliveryMessageSerializer(serializers.ModelSerializer):
 
 class DeliveryMessageCreateSerializer(serializers.Serializer):
     message = serializers.CharField(max_length=1000)
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ['id', 'kind', 'title', 'body', 'link', 'read_at', 'created_at']
+        read_only_fields = fields
+
+
+class BadgeSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    urgent = serializers.BooleanField()
+
+
+class NotificationSummarySerializer(serializers.Serializer):
+    badges = serializers.DictField(child=BadgeSerializer(), help_text='Keyed by the sidebar link, e.g. "/farmer/orders"')
+    unread = serializers.IntegerField(help_text='Unread bell items')
+    messages = serializers.IntegerField(help_text='Unread chat messages')
+
+
+class ReadIdsSerializer(serializers.Serializer):
+    ids = serializers.ListField(child=serializers.IntegerField(), required=False, max_length=200)
+
+
+class RealtimeTicketSerializer(serializers.Serializer):
+    ticket = serializers.CharField(help_text='One-time, valid 60 seconds: wss://<backend>/ws/?ticket=…')
+
+
+class ChatPartnerSerializer(serializers.ModelSerializer):
+    """Who you're talking to: no email, no account flags."""
+    class Meta:
+        model = User
+        fields = ['uid', 'full_name', 'role', 'city', 'avatar']
+        read_only_fields = fields
+
+
+class ChatLineSerializer(serializers.ModelSerializer):
+    sender_name = serializers.ReadOnlyField(source='sender.full_name')
+
+    class Meta:
+        model = ChatMessage
+        fields = ['id', 'sender', 'sender_name', 'receiver', 'message', 'order', 'timestamp', 'is_read']
+        read_only_fields = fields
+
+
+class InboxItemSerializer(serializers.Serializer):
+    partner = ChatPartnerSerializer()
+    last_message = ChatLineSerializer()
+    unread = serializers.IntegerField()
+
+
+class ConversationSerializer(serializers.Serializer):
+    partner = ChatPartnerSerializer()
+    can_send = serializers.BooleanField()
+    messages = ChatLineSerializer(many=True)
+
+
+class ChatSendSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=2000, trim_whitespace=True)

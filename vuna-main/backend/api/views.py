@@ -58,6 +58,9 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
+            if user.role == 'farmer':
+                from . import events
+                events.farmer_signed_up(user)
             token, _ = Token.objects.get_or_create(user=user)
             return Response({
                 'token': token.key,
@@ -824,6 +827,10 @@ class ChatMessageView(APIView):
             receiver = User.objects.get(uid=receiver_id)
         except User.DoesNotExist:
             return Response({'error': 'Receiver user not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        from .chat import can_chat
+        if not can_chat(request.user, receiver):
+            return Response({'error': "You can't message this person."}, status=status.HTTP_403_FORBIDDEN)
 
         message = ChatMessage.objects.create(
             sender=request.user,

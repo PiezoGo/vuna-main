@@ -16,6 +16,7 @@ from django.db.models import F
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
+from . import events
 from .models import Checkout, Order, Product
 from .pricing import price_order
 
@@ -109,7 +110,7 @@ def create_checkout(*, buyer, items, address, delivery_date, payment_choice) -> 
             quantity = merged[product.id]
             pricing = price_order(product.base_price_per_unit, quantity)
             Product.objects.filter(pk=product.pk).update(quantity=F('quantity') - quantity)
-            Order.objects.create(
+            order = Order.objects.create(
                 checkout=checkout,
                 product=product,
                 buyer=buyer,
@@ -121,6 +122,7 @@ def create_checkout(*, buyer, items, address, delivery_date, payment_choice) -> 
                 farmer_earnings=pricing.farmer_earnings,
                 status='pending',
             )
+            events.order_placed(order)
     return checkout
 
 
@@ -158,6 +160,7 @@ def accept(order: Order) -> Order:
         order.decided_at = timezone.now()
         order.save(update_fields=['status', 'decided_at'])
         _maybe_start_payment_clock(order.checkout)
+        events.order_answered(order)
     return order
 
 
@@ -168,6 +171,7 @@ def decline(order: Order) -> Order:
             raise ValidationError({'error': f'This order is {order.get_status_display().lower()} and can no longer be declined.'})
         _close_line(order, 'declined')
         _maybe_start_payment_clock(order.checkout)
+        events.order_answered(order)
     return order
 
 
@@ -204,6 +208,7 @@ def mark_lines_paid(lines, reference: str) -> None:
         line.mock_payment_id = reference
         if line.status == 'accepted':
             line.status = 'paid'
+            events.line_paid(line)
         elif line.status in ('declined', 'expired', 'cancelled'):
             line.refunded = True
         line.save(update_fields=['is_paid', 'mock_payment_id', 'status', 'refunded'])
@@ -222,6 +227,7 @@ def expire_stale(queryset=None, now=None) -> int:
     )
     for order in stale:
         _close_line(order, 'expired')
+        events.order_expired(order)
     for checkout_id in {o.checkout_id for o in stale}:
         _maybe_start_payment_clock(Checkout.objects.get(pk=checkout_id))
     return len(stale)

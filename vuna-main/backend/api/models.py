@@ -317,6 +317,21 @@ class Problem(models.Model):
         ordering = ['created_at']
 
 
+class Notification(models.Model):
+    """A bell item: something that happened that this user should know about (Module 10)."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    kind = models.CharField(max_length=40)
+    title = models.CharField(max_length=140)
+    body = models.CharField(max_length=255, blank=True, default='')
+    link = models.CharField(max_length=200, blank=True, default='')  # a site path, e.g. /orders/12
+    read_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [models.Index(fields=['user', 'read_at'])]
+
+
 class MpesaPayment(models.Model):
     """One M-Pesa Express (STK Push) prompt for a checkout."""
     STATUS_CHOICES = [

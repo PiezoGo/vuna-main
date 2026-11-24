@@ -35,6 +35,8 @@ from .delivery_views import (
     DriverStopView,
     DriverTripsView,
 )
+from .notification_views import NotificationListView, NotificationReadView, NotificationSummaryView, RealtimeTicketView
+from .chat_views import ConversationView, InboxView
 from .checkout_views import CheckoutViewSet, DeliveryAddressViewSet, MpesaCallbackView, PaymentDetailView, QuoteView
 from .views import (
     RegisterView,
@@ -106,6 +108,14 @@ urlpatterns = [
     path('admin/refunds/', AdminRefundListView.as_view(), name='admin_refunds'),
     path('admin/refunds/<int:pk>/record/', AdminRefundRecordView.as_view(), name='admin_refund_record'),
     path('admin/users/<uuid:uid>/active/', AdminUserActiveView.as_view(), name='admin_user_active'),
+
+    # Module 10: notifications and the live connection
+    path('notifications/', NotificationListView.as_view(), name='notifications'),
+    path('notifications/summary/', NotificationSummaryView.as_view(), name='notification_summary'),
+    path('notifications/read/', NotificationReadView.as_view(), name='notification_read'),
+    path('realtime/ticket/', RealtimeTicketView.as_view(), name='realtime_ticket'),
+    path('messages/inbox/', InboxView.as_view(), name='chat_inbox_v2'),
+    path('messages/with/<uuid:uid>/', ConversationView.as_view(), name='chat_conversation'),
 
     # Module 9: driver trips, buyer confirmation, problems, delivery chat
     path('driver/trips/', DriverTripsView.as_view(), name='driver_trips'),

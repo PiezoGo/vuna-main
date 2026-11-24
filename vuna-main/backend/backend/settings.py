@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'corsheaders',
     'drf_spectacular',
+    'channels',
 
     # Local apps
     'api',
@@ -129,6 +130,12 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'backend.wsgi.application'
+ASGI_APPLICATION = 'backend.asgi.application'
+
+# ── Real-time (Django Channels, Module 10) ───────────────────────────────────
+# In-memory layer: works with ONE server process (uvicorn on Render). No Redis by decision;
+# running more than one process would need a shared layer such as channels-redis.
+CHANNEL_LAYERS = {'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
 
 # ── Database ──────────────────────────────────────────────────────────────────
 # Uses Render's DATABASE_URL env var in production; falls back to SQLite locally
@@ -156,6 +163,9 @@ CORS_ALLOWED_ORIGINS = env_origins(
     'CORS_ALLOWED_ORIGINS',
     'https://vuna-main.vercel.app,http://localhost:5173,http://localhost:3000',
 )
+
+# Websites allowed to open the live connection (wss://<backend>/ws/). Set to the Vercel URL.
+WS_ALLOWED_ORIGINS = env_origins('WS_ALLOWED_ORIGINS', 'http://localhost:3000,http://127.0.0.1:3000')
 _client_url = os.environ.get('CLIENT_URL', '').strip().rstrip('/')
 if _client_url and _client_url not in CORS_ALLOWED_ORIGINS:
     CORS_ALLOWED_ORIGINS.append(_client_url)

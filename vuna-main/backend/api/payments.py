@@ -14,7 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from . import mpesa
+from . import events, mpesa
 from .checkout import expire_stale, mark_lines_paid, payable_lines
 from .models import Checkout, MpesaPayment
 from .phone import normalize_ke_phone
@@ -92,6 +92,7 @@ def _settle(payment: MpesaPayment, *, code: int, desc: str, receipt: str = '', r
         checkout.payment_reference = receipt or payment.checkout_request_id
         checkout.paid_at = timezone.now()
         checkout.save(update_fields=['payment_reference', 'paid_at'])
+        events.payment_received(checkout, payment.amount)
     else:
         payment.status = 'failed'
     payment.save()

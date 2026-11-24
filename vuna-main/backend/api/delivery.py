@@ -11,7 +11,7 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied, ValidationError
 
-from . import fulfilment
+from . import events, fulfilment
 from .models import ChatMessage, Order, Problem, User
 from .pricing import farmer_share_of_refund
 
@@ -97,6 +97,7 @@ def report_problem(*, request, order: Order, reason: str, description: str, phot
     url = save_photo(request, photo, 'problems')
     problem = Problem.objects.create(order=order, buyer=buyer, reason=reason, description=description, photo=url)
     fulfilment.log(order, 'problem', buyer, f'Problem reported: {problem.get_reason_display()}')
+    events.problem_reported(problem)
     return problem
 
 
@@ -124,6 +125,7 @@ def decide(*, actor: User, problem: Problem, decision: str, fault: str, amount: 
     fulfilment.log(order, f'problem_{problem.status}', actor, note)
     if order.status == 'delivered':
         fulfilment.advance(actor=actor, order=order, to='completed', note=f'Problem #{problem.id} {problem.status}')
+    events.problem_decided(problem)
     return problem
 
 
