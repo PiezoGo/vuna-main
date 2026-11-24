@@ -2,7 +2,8 @@
 
 - `ui/`: the design system. Generic primitives with no VUNA knowledge (see `ui/AGENTS.md`).
 - `layout/`: Navbar, Footer, DashboardShell, Sidebar.
-- `<feature>/` (`product`, `cart`, `checkout`, `order`, `chat`, `call`, `dashboard`, `admin`): VUNA-specific components built from `ui/` primitives.
+- `<feature>/` (`product`, `cart`, `checkout`, `order`, `chat`, `call`, `dashboard`, `admin`, `delivery`): VUNA-specific components built from `ui/` primitives.
+- `delivery/`: the driver app (trips, stops, photo capture) and the per-delivery chat (Module 9).
 - `admin/`: the operations dashboard (Module 8): overview cards, order steps, trips, payout/refund queues, drivers and users.
 
 Rules:

@@ -1,27 +1,22 @@
-import { Truck } from "lucide-react";
 import type { Metadata } from "next";
 
-import { ComingNext } from "@/components/dashboard/coming-next";
+import { DriverTrips } from "@/components/delivery/driver-trips";
 import { PageHeader } from "@/components/ui/page-header";
 import { requireUser } from "@/lib/auth/session";
 
-export const metadata: Metadata = { title: "Driver" };
+export const metadata: Metadata = { title: "My trips" };
 
 export default async function DriverHome() {
   // Layouts and pages render in parallel, so every page checks the role itself.
-  await requireUser("/driver", { roles: ["driver"] });
+  const user = await requireUser("/driver", { roles: ["driver"] });
   return (
-    <>
+    <div className="grid gap-6">
       <PageHeader
         eyebrow="Driver"
-        title="Today's trip"
-        description="Your pickups and drop-offs will appear here."
+        title={`Habari, ${user.full_name.split(" ")[0]}`}
+        description="Collect from each farm in order, then deliver. Take a photo at every stop."
       />
-      <ComingNext
-        icon={Truck}
-        title="Trips are coming soon"
-        description="Once an admin assigns you a trip, you'll see each stop here in order."
-      />
-    </>
+      <DriverTrips when="upcoming" />
+    </div>
   );
 }

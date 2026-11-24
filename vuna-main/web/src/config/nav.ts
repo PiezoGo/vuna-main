@@ -11,6 +11,7 @@ import {
   Route,
   ShoppingBasket,
   Store,
+  TriangleAlert,
   Truck,
   Users,
   Wallet,
@@ -46,8 +47,8 @@ export const dashboardNav: Record<Role, NavItem[]> = {
     { title: "Messages", href: "/messages", icon: MessageSquare },
   ],
   driver: [
-    { title: "Current job", href: "/driver", icon: Truck },
-    { title: "History", href: "/driver/history", icon: ClipboardList },
+    { title: "My trips", href: "/driver", icon: Truck },
+    { title: "Past trips", href: "/driver/history", icon: ClipboardList },
   ],
   admin: [
     { title: "Today", href: "/admin", icon: BarChart3 },
@@ -55,6 +56,7 @@ export const dashboardNav: Record<Role, NavItem[]> = {
     { title: "Trips", href: "/admin/trips", icon: Route },
     { title: "Payouts", href: "/admin/payouts", icon: HandCoins },
     { title: "Refunds", href: "/admin/refunds", icon: RotateCcw },
+    { title: "Problems", href: "/admin/problems", icon: TriangleAlert },
     { title: "Farmer approvals", href: "/admin/farmers", icon: UserCheck },
     { title: "Drivers", href: "/admin/drivers", icon: Truck },
     { title: "Users", href: "/admin/users", icon: Users },
