@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { CartButton } from "@/components/cart/cart-button";
 import { UserMenu } from "@/components/layout/user-menu";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { route, routes } from "@/config/routes";
@@ -21,6 +22,7 @@ export function HeaderAuth() {
     return (
       <>
         {user.role === "buyer" ? <CartButton /> : null}
+        <NotificationBell />
         <UserMenu user={user} />
       </>
     );

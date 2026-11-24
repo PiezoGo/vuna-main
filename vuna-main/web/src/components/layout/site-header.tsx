@@ -4,6 +4,7 @@ import { Logo } from "@/components/brand/logo";
 import { HeaderAuth } from "@/components/layout/header-auth";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { NavLinks } from "@/components/layout/nav-links";
+import { MobileHeaderBell } from "@/components/notifications/mobile-header-bell";
 import { ConfirmDeliveriesBanner } from "@/components/order/confirm-deliveries-banner";
 import { route, routes } from "@/config/routes";
 
@@ -28,6 +29,7 @@ export function SiteHeader() {
           <HeaderAuth />
         </div>
 
+        <MobileHeaderBell />
         <MobileNav className="ml-auto md:hidden" />
       </div>
       <ConfirmDeliveriesBanner />

@@ -1,7 +1,14 @@
 "use client";
 
 import type { User } from "@vuna/api";
-import { ClipboardList, KeyRound, LayoutDashboard, LogOut, UserRound } from "lucide-react";
+import {
+  ClipboardList,
+  KeyRound,
+  LayoutDashboard,
+  LogOut,
+  MessageSquare,
+  UserRound,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 
@@ -16,7 +23,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { NavBadge } from "@/components/notifications/nav-badge";
 import { roleHome, routes } from "@/config/routes";
+import { useNotificationSummary } from "@/features/notifications/queries";
 import { useLogout } from "@/features/auth/queries";
 import { isRole, roleLabels } from "@/types/auth";
 
@@ -25,6 +34,7 @@ type MenuUser = Pick<User, "full_name" | "email" | "role">;
 export function UserMenu({ user }: { user: MenuUser }) {
   const logout = useLogout();
   const role = isRole(user.role) ? user.role : null;
+  const badges = useNotificationSummary(true).data?.badges ?? {};
 
   return (
     <DropdownMenu>
@@ -54,6 +64,15 @@ export function UserMenu({ user }: { user: MenuUser }) {
           <DropdownMenuItem asChild>
             <Link href={"/orders" as Route}>
               <ClipboardList /> My orders
+              <NavBadge badge={badges["/orders"]} />
+            </Link>
+          </DropdownMenuItem>
+        ) : null}
+        {role === "buyer" ? (
+          <DropdownMenuItem asChild>
+            <Link href={"/messages" as Route}>
+              <MessageSquare /> Messages
+              <NavBadge badge={badges["/messages"]} />
             </Link>
           </DropdownMenuItem>
         ) : null}

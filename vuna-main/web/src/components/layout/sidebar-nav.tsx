@@ -5,7 +5,9 @@ import { usePathname } from "next/navigation";
 import type { Route } from "next";
 
 import { isActivePath } from "@/components/layout/nav-links";
+import { NavBadge } from "@/components/notifications/nav-badge";
 import { dashboardNav } from "@/config/nav";
+import { useNotificationSummary } from "@/features/notifications/queries";
 import type { Role } from "@/types/auth";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +22,7 @@ export function SidebarNav({
 }) {
   const pathname = usePathname();
   const items = dashboardNav[role];
+  const badges = useNotificationSummary(true).data?.badges ?? {};
   // The most specific matching item wins, so "/farmer/orders" doesn't also light up "/farmer".
   const activeHref = items
     .filter((item) => isActivePath(pathname, item.href))
@@ -44,6 +47,7 @@ export function SidebarNav({
               >
                 <Icon className="size-[18px]" aria-hidden />
                 {item.title}
+                <NavBadge badge={badges[item.href]} />
               </Link>
             </li>
           );

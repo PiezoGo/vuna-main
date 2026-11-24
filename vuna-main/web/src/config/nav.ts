@@ -49,6 +49,7 @@ export const dashboardNav: Record<Role, NavItem[]> = {
   driver: [
     { title: "My trips", href: "/driver", icon: Truck },
     { title: "Past trips", href: "/driver/history", icon: ClipboardList },
+    { title: "Messages", href: "/messages", icon: MessageSquare },
   ],
   admin: [
     { title: "Today", href: "/admin", icon: BarChart3 },
@@ -60,6 +61,7 @@ export const dashboardNav: Record<Role, NavItem[]> = {
     { title: "Farmer approvals", href: "/admin/farmers", icon: UserCheck },
     { title: "Drivers", href: "/admin/drivers", icon: Truck },
     { title: "Users", href: "/admin/users", icon: Users },
+    { title: "Messages", href: "/messages", icon: MessageSquare },
   ],
   agent: [{ title: "My farmers", href: "/agent", icon: Users }],
 };
