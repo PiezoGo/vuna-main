@@ -1,0 +1,98 @@
+# Module 10: Notifications and chat (real-time)
+
+Status: **plan, revised Nov 24 with your answers, waiting for "go"**. Branch `refine`. Merges the planned Chat module (migration plan Module 10: Channels, inbox, conversations, unread counts) with in-app notifications. Calls stay Module 11 and Cut-over Module 12.
+
+## Goal
+Nobody misses work waiting for them, and people can talk to each other on the site.
+- Every role sees a **count badge** on the sidebar tab where the work is, and a **bell** with what just happened. Both update **instantly**, with a soft sound.
+- Buyers and farmers (and drivers with buyers, from Module 9) chat in an **inbox** with live messages and unread counts.
+
+## How "instant" works
+| Piece | Choice | Why |
+|---|---|---|
+| Real-time server | **Django Channels** on an ASGI server (**uvicorn**). Render's start command changes from `gunicorn backend.wsgi` to `uvicorn backend.asgi:application --host 0.0.0.0 --port $PORT` (one process on the free plan) | Agreed in the migration plan; same codebase, permissions and tests as the REST API. Normal API requests keep working unchanged under ASGI |
+| Channel layer | **Render Key Value (Redis), free tier**, with `channels-redis`. In-memory layer when `REDIS_URL` is empty (local development, tests) | In-memory only works inside one process: the `expire_orders` cron job (a separate Render service) and any second worker couldn't send live events. Free Key Value is enough for this (25 MB, messages are tiny and nothing needs to be stored there) |
+| Connecting from the browser | The browser connects **straight to the Render host** (`wss://…onrender.com/ws/`), because Vercel can't forward websockets. Sign-in token stays in the httpOnly cookie: the site first asks its own `/api/realtime/ticket` route, which asks Django for a **one-time ticket valid 60 seconds**; the socket sends that ticket. Django checks the ticket and the Origin (only our Vercel and local addresses) | The real login token never reaches the browser's JavaScript, the same rule as today |
+| Who gets what | One group per user (`user.<uid>`) for their bell, badges and messages, and one for admins (`role.admin`) for shared queues | Each person only receives their own events |
+| What's sent | Small events: `notification` (a new bell item), `badges` (counts changed: the site refetches the counts), `message` (a chat message), `read` (messages read) | Counts are always computed by the server, never trusted from the event |
+| When the socket drops | Reconnects automatically (1 s, 2 s, 5 s, then every 30 s). While disconnected the site falls back to asking every 60 seconds, and refetches everything when the socket comes back or the tab regains focus | Render's free plan sleeps after 15 minutes idle; nothing is missed, it's just slower until it wakes |
+| RAM | Adds `channels`, `channels-redis`, `uvicorn[standard]` (about 30–50 MB more on the server). One process fits the free plan's 512 MB | No new paid service |
+
+## Who sees what
+| Role | Sidebar badges (counts) | Bell items |
+|---|---|---|
+| Farmer | **Orders**: waiting for you to accept or decline (red under 30 minutes left). **Messages**: unread | New order, buyer paid, produce collected, payout sent (with M-Pesa reference), refund taken off a payout |
+| Buyer | **Orders**: deliveries to confirm and lines ready to pay. **Messages**: unread | Farmer accepted or declined your order, payment received, driver assigned (name and phone), collected, delivered (please confirm), problem decided, refund sent |
+| Driver | **My trips**: stops still to do today and upcoming. **Messages**: unread | New trip assigned (date, number of stops), trip changed or cancelled |
+| Admin | **Trips**: paid orders without a trip (count only, no bell item each). **Payouts**: due (red if overdue). **Refunds**, **Problems**, **Farmer approvals**, **Orders** (delivered 24 h+ without confirmation) | New problem reported, payout overdue, farmer signed up |
+| Field agent | **My farmers**: their farmers' orders waiting for an answer | A linked farmer got a new order |
+
+Messages don't create bell items (the Messages badge and the inbox cover them), so the bell isn't flooded. Badges show a number (99+ max); on phones the menu button shows a dot. The browser tab title shows "(3) VUNA".
+
+## Sound
+A short, soft two-note chime for a new bell item or chat message, played only while the site is open in a tab (and not for messages in the conversation you're already reading). Made in the browser (Web Audio), so there's no sound file to license. A **mute** switch in the bell menu, remembered on that device. Browsers don't allow sound until the person has clicked or tapped the page once, so the first event after loading a page may be silent.
+
+## Scope
+
+### Backend
+| Change | Details |
+|---|---|
+| ASGI + Channels | `asgi.py` routes `/ws/` to a consumer; settings for the channel layer (`REDIS_URL`) and allowed websocket origins |
+| Ticket | `POST /api/realtime/ticket/` (signed in) returns a one-time ticket stored for 60 s |
+| `Notification` model | user, kind, title, body, link, `read_at`, `created_at`; indexed on (user, read_at) |
+| `notify()` helper | Called at the events above in `checkout.py`, `payments.py`, `fulfilment.py`, `delivery.py`, `accounts.py`; saves the bell item and pushes it live **after the database commit**; never makes the action fail |
+| `GET /api/notifications/summary/` | Badge counts per sidebar tab, plus unread bell and message counts |
+| `GET /api/notifications/`, `POST …/{id}/read/`, `POST …/read-all/` | Bell list (latest 20, own only) |
+| Chat | Inbox (`GET /api/messages/chats/`, rewritten: one query, unread count per conversation, farmer/buyer/driver threads), conversation (`GET/POST /api/messages/?receiver_id=`), mark read. Who may message whom: any signed-in buyer ↔ any farmer (business rule 20); drivers ↔ buyers only through a delivery (Module 9). Messages push live to both people |
+| Clean-up | Read notifications older than 60 days removed by the existing `expire_orders` cron |
+| Tests | Counts per role; each event notifies the right person only; ticket expiry and reuse; socket rejects bad tickets and foreign origins; chat permissions; nobody receives another user's events |
+
+### Web
+| Piece | Details |
+|---|---|
+| Realtime client | One socket per signed-in tab (`features/realtime/`), ticket from `/api/realtime/ticket`, reconnect and polling fallback, updates TanStack Query caches |
+| Sidebar badges + mobile dot | `config/nav.ts` items get a `badge` key read from the summary |
+| Bell | Dashboard top bar and the public header: unread count, list, open link, mark read / all read, mute switch |
+| `/messages` and `/messages/[uid]` | Inbox (last message, unread count, newest first) and conversation (live messages, "Seen", send with Enter) at 375 px. "Message farmer" on the farmer profile and product page; delivery chats from Module 9 appear in the same inbox |
+| Sound | `lib/chime.ts` with the mute setting |
+
+### Render and Vercel changes (you do these; I'll give exact steps)
+- Backend: start command → `uvicorn …`, add a free **Key Value** instance and set `REDIS_URL`, set `WS_ALLOWED_ORIGINS` (your Vercel URL).
+- Website: `NEXT_PUBLIC_WS_URL` = `wss://<render-host>/ws/` (not a secret).
+- The `expire_orders` cron job also gets `REDIS_URL`.
+
+## Build order
+1. Backend notifications: model, `notify()` at each event, summary and bell endpoints, tests (works even before real-time).
+2. Web badges and bell (using the summary, with polling for now).
+3. Real-time: Channels, ASGI, ticket, consumer, live events; web socket client with fallback; sound and mute.
+4. Chat: inbox, conversation, unread counts, live messages, entry points.
+5. Lint, type-check, tests, build after each web step; deploy notes; push.
+
+## Out of scope (and where it goes)
+- **SMS and WhatsApp** for key events (business rules section 3) and **email** receipts: a later module once an Africa's Talking or WhatsApp Business account exists. `notify()` is where they plug in.
+- **Web push** (notifications with the site closed) and the installable app: with the PWA work.
+- **Calls** and incoming-call ringing: Module 11 (LiveKit), reusing this socket.
+- Typing indicators, photos in chat, group chats, notification settings per kind.
+
+## Decisions (answered Nov 24)
+1. Notifications and chat together in Module 10. Calls stay 11, Cut-over 12.
+2. Instant updates (Django Channels), with polling only as a fallback.
+3. "A confirmation" for buyers means the **farmer** accepting their order.
+4. Admins: a count on Trips for paid orders without a trip, no bell item per order.
+5. A soft sound for new bell items and messages, with a mute switch.
+
+## Open questions (my recommendation in brackets)
+1. Use Render's free Key Value (Redis) for the channel layer? [Yes, see above. If you'd rather not add it, in-memory works for the single web process, but events from the cron job (expired orders) would only show at the next refresh]
+2. Should mute be remembered per device or follow the account to every device? [Per device: no extra database field, and phones and laptops often want different settings]
+3. Who may start a chat? [Buyers ↔ farmers freely (business rule 20); drivers only with the buyers on their trips; admins can message anyone; farmers can't message other farmers]
+4. Sound on by default? [Yes, with the mute switch in the bell menu]
+
+## Test checklist
+- [ ] Backend tests pass; lint, type-check, unit tests and build pass
+- [ ] Buyer pays → the farmer's Orders badge and bell update within a second, with the chime; accepting clears the badge and the buyer's bell says "accepted"
+- [ ] Admin plans a trip → the Trips badge drops; the driver's My trips badge and bell update; the buyer's bell names the driver
+- [ ] Driver delivers → the buyer's Orders badge shows 1 to confirm; confirming clears it
+- [ ] Overdue payout shows a red badge on Payouts
+- [ ] Buyer and farmer chat in two browsers: messages appear instantly, unread counts and "Seen" update, the mute switch silences the chime
+- [ ] Stop the backend for a minute: the site keeps working, reconnects by itself, nothing is missed
+- [ ] Nobody receives another person's notifications or messages; works at 375 px
