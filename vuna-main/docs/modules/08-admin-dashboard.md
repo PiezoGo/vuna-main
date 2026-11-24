@@ -1,6 +1,6 @@
 # Module 8: Admin dashboard (operations)
 
-Status: **plan, waiting for approval**. Branch `refine`. PRD stories: ADM-1 (trips), ADM-2 (payout queue), ADM-3 (users, approvals), AC-3 (staff accounts), section 10 (reports).
+Status: **approved Nov 24, building**. Branch `refine`. PRD stories: ADM-1 (trips), ADM-2 (payout queue), ADM-3 (users, approvals), AC-3 (staff accounts), section 10 (reports).
 
 ## Goal
 VUNA's operations team runs a day from the new site: see what needs doing today, group paid orders into delivery trips with a driver, track farmer payouts against the 4-hour promise, record refunds, and manage drivers, agents and users. No Django admin or old site needed.

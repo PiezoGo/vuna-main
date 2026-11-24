@@ -225,8 +225,53 @@ class Order(models.Model):
     refunded = models.BooleanField(default=False)
     decided_at = models.DateTimeField(null=True, blank=True)
 
+    # Delivery and money after payment (Module 8)
+    trip = models.ForeignKey('Trip', on_delete=models.SET_NULL, null=True, blank=True, related_name='orders')
+    stop_order = models.PositiveIntegerField(default=0)
+    collected_at = models.DateTimeField(null=True, blank=True)  # starts the 4-hour payout promise
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    payout_reference = models.CharField(max_length=32, blank=True, default='')
+    paid_out_at = models.DateTimeField(null=True, blank=True)
+    refund_reference = models.CharField(max_length=32, blank=True, default='')
+    refunded_at = models.DateTimeField(null=True, blank=True)
+
     def __str__(self):
         return f"Order #{self.id} - {self.product.title} ({self.status})"
+
+
+class Trip(models.Model):
+    """One driver's delivery run on one date: farm pickups, then buyer drop-offs."""
+    STATUS_CHOICES = [
+        ('planned', 'Planned'),
+        ('in_progress', 'On the road'),
+        ('done', 'Done'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    delivery_date = models.DateField()
+    driver = models.ForeignKey(User, on_delete=models.PROTECT, related_name='trips', limit_choices_to={'role': 'driver'})
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='planned')
+    notes = models.CharField(max_length=255, blank=True, default='')
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='trips_created')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-delivery_date', 'id']
+
+    def __str__(self):
+        return f'Trip #{self.id} {self.delivery_date} ({self.driver.full_name})'
+
+
+class OrderEvent(models.Model):
+    """Audit trail: every status change on an order line, who made it and when."""
+    order = models.ForeignKey('Order', on_delete=models.CASCADE, related_name='events')
+    status = models.CharField(max_length=20)
+    actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='order_events')
+    note = models.CharField(max_length=255, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
 
 
 class MpesaPayment(models.Model):

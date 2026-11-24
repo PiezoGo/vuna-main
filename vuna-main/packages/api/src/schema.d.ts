@@ -108,6 +108,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/farmers/{uid}/agent/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Link a farmer to a field agent (or unlink with null). */
+        post: operations["admin_farmers_agent_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/farmers/{uid}/approve/": {
         parameters: {
             query?: never;
@@ -156,6 +173,103 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/orders/{id}/step/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Mark a line collected / in transit / delivered / completed by hand (until the driver app). */
+        post: operations["admin_orders_step_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/overview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_overview_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/payouts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_payouts_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/payouts/{id}/record/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_payouts_record_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/refunds/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_refunds_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/refunds/{id}/record/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_refunds_record_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/staff/": {
         parameters: {
             query?: never;
@@ -173,6 +287,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/trips/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_trips_list"];
+        put?: never;
+        post: operations["admin_trips_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/trips/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_trips_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/trips/{id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_trips_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/trips/{id}/orders/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Replace the trip's orders (add, remove, reorder). An empty list cancels the trip. */
+        put: operations["admin_trips_orders_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users/": {
         parameters: {
             query?: never;
@@ -184,6 +363,23 @@ export interface paths {
         put?: never;
         post?: never;
         delete: operations["admin_users_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{uid}/active/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Deactivate (or reactivate) an account. Users are never deleted: their orders must stay. */
+        post: operations["admin_users_active_create"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -716,6 +912,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdminOverview: {
+            waiting_for_farmers: number;
+            awaiting_payment: number;
+            paid_without_trip: number;
+            trips_today: number;
+            payouts_due: number;
+            payouts_overdue: number;
+            refunds_to_send: number;
+            pending_farmers: number;
+            /** Format: decimal */
+            week_gmv: string;
+            week_orders: number;
+        };
         AgentFarmer: {
             /** Format: uuid */
             readonly uid: string;
@@ -727,6 +936,10 @@ export interface components {
             readonly approval_status: components["schemas"]["ApprovalStatusEnum"];
             readonly live_listings: number;
             readonly waiting_orders: number;
+        };
+        AgentLinkRequest: {
+            /** Format: uuid */
+            agent: string | null;
         };
         /**
          * @description * `pending` - Pending
@@ -1001,6 +1214,16 @@ export interface components {
             readonly delivery_area: string;
             /** Format: int64 */
             readonly product_min_order_quantity: number;
+            readonly trip: number | null;
+            /** Format: date-time */
+            readonly collected_at: string | null;
+            /** Format: date-time */
+            readonly delivered_at: string | null;
+            /** Format: date-time */
+            readonly paid_out_at: string | null;
+            readonly payout_reference: string;
+            /** Format: date-time */
+            readonly refunded_at: string | null;
         };
         OrderActionResponse: {
             detail: string;
@@ -1029,6 +1252,18 @@ export interface components {
          * @enum {string}
          */
         OrderStatusEnum: "pending" | "accepted" | "declined" | "expired" | "paid" | "assigned" | "collected" | "in_transit" | "delivered" | "completed" | "cancelled";
+        OrderStepRequest: {
+            status: components["schemas"]["OrderStepStatusEnum"];
+            note?: string;
+        };
+        /**
+         * @description * `collected` - collected
+         *     * `in_transit` - in_transit
+         *     * `delivered` - delivered
+         *     * `completed` - completed
+         * @enum {string}
+         */
+        OrderStepStatusEnum: "collected" | "in_transit" | "delivered" | "completed";
         PaginatedProductList: {
             /** @example 123 */
             count: number;
@@ -1072,7 +1307,8 @@ export interface components {
             delivery_time_manual?: number | null;
             delivery_time_varies?: boolean;
             images?: unknown;
-            is_active?: boolean;
+            /** @default true */
+            is_active: boolean;
         };
         /**
          * @description * `pay_now` - Pay now
@@ -1080,6 +1316,22 @@ export interface components {
          * @enum {string}
          */
         PaymentChoiceEnum: "pay_now" | "pay_after";
+        PayoutLine: {
+            readonly id: number;
+            readonly product_title: string;
+            readonly quantity: number;
+            readonly unit: components["schemas"]["ProductUnitEnum"];
+            readonly farmer_name: string;
+            readonly farmer_phone: string;
+            /** Format: decimal */
+            readonly farmer_earnings: string | null;
+            readonly status: components["schemas"]["OrderStatusEnum"];
+            /** Format: date-time */
+            readonly collected_at: string | null;
+            readonly due_by: string | null;
+            /** @description Minutes until the 4-hour promise; negative once overdue. */
+            readonly minutes_left: number | null;
+        };
         Product: {
             readonly id: number;
             /** Format: uuid */
@@ -1111,7 +1363,8 @@ export interface components {
             images?: unknown;
             /** Format: date-time */
             readonly created_at: string;
-            is_active?: boolean;
+            /** @default true */
+            is_active: boolean;
             /** @description What the farmer receives per unit after VUNA's fee (from api/pricing.py). */
             readonly farmer_earnings_per_unit: string;
         };
@@ -1137,7 +1390,8 @@ export interface components {
             delivery_time_manual?: number | null;
             delivery_time_varies?: boolean;
             images?: unknown;
-            is_active?: boolean;
+            /** @default true */
+            is_active: boolean;
         };
         /**
          * @description * `kg` - kg
@@ -1206,6 +1460,22 @@ export interface components {
         QuoteRequestRequest: {
             items: components["schemas"]["CartItemRequest"][];
         };
+        ReferenceRequest: {
+            reference: string;
+        };
+        RefundLine: {
+            readonly id: number;
+            readonly product_title: string;
+            readonly quantity: number;
+            readonly buyer_name: string;
+            readonly buyer_phone: string;
+            /** Format: decimal */
+            readonly total_price: string;
+            readonly status: components["schemas"]["OrderStatusEnum"];
+            readonly payment_reference: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+        };
         RegisterRequest: {
             /** Format: email */
             email: string;
@@ -1252,6 +1522,63 @@ export interface components {
         StartPaymentRequest: {
             phone?: string;
         };
+        Trip: {
+            readonly id: number;
+            /** Format: date */
+            readonly delivery_date: string;
+            /** Format: uuid */
+            readonly driver: string;
+            readonly driver_name: string;
+            readonly driver_phone: string;
+            readonly status: components["schemas"]["TripStatusEnum"];
+            readonly notes: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly stop_count: number;
+            readonly stops: components["schemas"]["TripStop"][];
+        };
+        TripCreateRequest: {
+            /** Format: date */
+            delivery_date: string;
+            /** Format: uuid */
+            driver: string;
+            orders: number[];
+            notes?: string;
+        };
+        TripOrdersRequest: {
+            orders: number[];
+        };
+        /**
+         * @description * `planned` - Planned
+         *     * `in_progress` - On the road
+         *     * `done` - Done
+         *     * `cancelled` - Cancelled
+         * @enum {string}
+         */
+        TripStatusEnum: "planned" | "in_progress" | "done" | "cancelled";
+        /** @description An order line as the driver and admin see it on a trip: pickup and drop-off details. */
+        TripStop: {
+            readonly id: number;
+            readonly stop_order: number;
+            readonly status: components["schemas"]["OrderStatusEnum"];
+            readonly quantity: number;
+            readonly unit: components["schemas"]["ProductUnitEnum"];
+            readonly product_title: string;
+            readonly farmer_name: string;
+            readonly farmer_phone: string;
+            readonly farmer_city: string;
+            readonly farmer_market: string;
+            readonly buyer_name: string;
+            readonly contact_name: string;
+            readonly contact_phone: string;
+            readonly area: string;
+            readonly details: string;
+            readonly landmark: string;
+            /** Format: date-time */
+            readonly collected_at: string | null;
+            /** Format: date-time */
+            readonly delivered_at: string | null;
+        };
         User: {
             /** Format: uuid */
             readonly uid: string;
@@ -1277,6 +1604,16 @@ export interface components {
             readonly cooperative_name: string;
             /** Format: uuid */
             readonly agent: string | null;
+            /**
+             * Active
+             * @description Designates whether this user should be treated as active. Unselect this instead of deleting accounts.
+             */
+            readonly is_active: boolean;
+            /** Format: date-time */
+            readonly date_joined: string;
+        };
+        UserActiveRequest: {
+            active: boolean;
         };
         /**
          * @description * `farmer` - Farmer
@@ -1621,6 +1958,49 @@ export interface operations {
             };
         };
     };
+    admin_farmers_agent_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentLinkRequest"];
+                "multipart/form-data": components["schemas"]["AgentLinkRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["AgentLinkRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     admin_farmers_approve_create: {
         parameters: {
             query?: never;
@@ -1688,8 +2068,18 @@ export interface operations {
     admin_orders_list: {
         parameters: {
             query?: {
+                /** @description Buyer uid */
+                buyer?: string;
+                /** @description Delivery date, YYYY-MM-DD */
+                date?: string;
+                /** @description Farmer uid */
+                farmer?: string;
+                /** @description Search product, farmer, buyer or order number */
+                q?: string;
                 /** @description Filter by order status */
                 status?: string;
+                /** @description Only lines not on a trip */
+                unscheduled?: "true";
             };
             header?: never;
             path?: never;
@@ -1703,6 +2093,192 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Order"][];
+                };
+            };
+        };
+    };
+    admin_orders_step_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderStepRequest"];
+                "multipart/form-data": components["schemas"]["OrderStepRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["OrderStepRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    admin_overview_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverview"];
+                };
+            };
+        };
+    };
+    admin_payouts_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PayoutLine"][];
+                };
+            };
+        };
+    };
+    admin_payouts_record_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceRequest"];
+                "multipart/form-data": components["schemas"]["ReferenceRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReferenceRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    admin_refunds_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundLine"][];
+                };
+            };
+        };
+    };
+    admin_refunds_record_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReferenceRequest"];
+                "multipart/form-data": components["schemas"]["ReferenceRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ReferenceRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -1742,9 +2318,176 @@ export interface operations {
             };
         };
     };
+    admin_trips_list: {
+        parameters: {
+            query?: {
+                /** @description Delivery date, YYYY-MM-DD */
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"][];
+                };
+            };
+        };
+    };
+    admin_trips_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TripCreateRequest"];
+                "multipart/form-data": components["schemas"]["TripCreateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TripCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    admin_trips_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    admin_trips_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    admin_trips_orders_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TripOrdersRequest"];
+                "multipart/form-data": components["schemas"]["TripOrdersRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TripOrdersRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     admin_users_list: {
         parameters: {
             query?: {
+                approval?: "approved" | "pending" | "rejected";
+                /** @description Search name, email or phone */
+                q?: string;
                 /** @description Filter by role */
                 role?: string;
             };
@@ -1779,6 +2522,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DetailResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    admin_users_active_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserActiveRequest"];
+                "multipart/form-data": components["schemas"]["UserActiveRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["UserActiveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
                 };
             };
             400: {

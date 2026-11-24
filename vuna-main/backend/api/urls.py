@@ -9,6 +9,20 @@ from .accounts import (
     ChangePasswordView,
     CooperativeListView,
 )
+from .admin_views import (
+    AdminFarmerAgentView,
+    AdminOrderStepView,
+    AdminOverviewView,
+    AdminPayoutListView,
+    AdminPayoutRecordView,
+    AdminRefundListView,
+    AdminRefundRecordView,
+    AdminTripCancelView,
+    AdminTripDetailView,
+    AdminTripListView,
+    AdminTripOrdersView,
+    AdminUserActiveView,
+)
 from .checkout_views import CheckoutViewSet, DeliveryAddressViewSet, MpesaCallbackView, PaymentDetailView, QuoteView
 from .views import (
     RegisterView,
@@ -68,6 +82,18 @@ urlpatterns = [
     path('admin/farmers/', AdminFarmerListView.as_view(), name='admin_farmers'),
     path('admin/farmers/<uuid:uid>/approve/', AdminFarmerApproveView.as_view(), name='admin_farmer_approve'),
     path('admin/farmers/<uuid:uid>/reject/', AdminFarmerRejectView.as_view(), name='admin_farmer_reject'),
+    path('admin/farmers/<uuid:uid>/agent/', AdminFarmerAgentView.as_view(), name='admin_farmer_agent'),
+    path('admin/overview/', AdminOverviewView.as_view(), name='admin_overview'),
+    path('admin/orders/<int:pk>/step/', AdminOrderStepView.as_view(), name='admin_order_step'),
+    path('admin/trips/', AdminTripListView.as_view(), name='admin_trips'),
+    path('admin/trips/<int:pk>/', AdminTripDetailView.as_view(), name='admin_trip_detail'),
+    path('admin/trips/<int:pk>/orders/', AdminTripOrdersView.as_view(), name='admin_trip_orders'),
+    path('admin/trips/<int:pk>/cancel/', AdminTripCancelView.as_view(), name='admin_trip_cancel'),
+    path('admin/payouts/', AdminPayoutListView.as_view(), name='admin_payouts'),
+    path('admin/payouts/<int:pk>/record/', AdminPayoutRecordView.as_view(), name='admin_payout_record'),
+    path('admin/refunds/', AdminRefundListView.as_view(), name='admin_refunds'),
+    path('admin/refunds/<int:pk>/record/', AdminRefundRecordView.as_view(), name='admin_refund_record'),
+    path('admin/users/<uuid:uid>/active/', AdminUserActiveView.as_view(), name='admin_user_active'),
 
     # Driver endpoints
     path('driver/orders/', DriverOrderView.as_view(), name='driver_orders'),

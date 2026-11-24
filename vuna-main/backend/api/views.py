@@ -635,27 +635,42 @@ class AdminCompleteOrderView(APIView):
 class AdminAllOrdersView(APIView):
     permission_classes = [IsAdmin]
 
-    @extend_schema(parameters=[schema.STATUS_PARAM], responses=OrderSerializer(many=True))
+    @extend_schema(parameters=[
+        schema.STATUS_PARAM,
+        OpenApiParameter('date', str, description='Delivery date, YYYY-MM-DD'),
+        OpenApiParameter('farmer', str, description='Farmer uid'),
+        OpenApiParameter('buyer', str, description='Buyer uid'),
+        OpenApiParameter('unscheduled', str, enum=['true'], description='Only lines not on a trip'),
+        OpenApiParameter('q', str, description='Search product, farmer, buyer or order number'),
+    ], responses=OrderSerializer(many=True))
     def get(self, request):
-        queryset = Order.objects.all().order_by('-created_at')
-
-        status_filter = request.query_params.get('status')
-        if status_filter:
-            queryset = queryset.filter(status=status_filter)
-
-        serializer = OrderSerializer(queryset, many=True)
+        from .admin_views import filter_admin_orders
+        queryset = Order.objects.select_related('product', 'buyer', 'farmer', 'driver', 'checkout').order_by('-created_at')
+        queryset = filter_admin_orders(queryset, request.query_params)
+        serializer = OrderSerializer(queryset[:500], many=True)
         return Response(serializer.data)
 
 
 class AdminUsersView(APIView):
     permission_classes = [IsAdmin]
 
-    @extend_schema(parameters=[schema.ROLE_PARAM], responses=UserSerializer(many=True))
+    @extend_schema(parameters=[
+        schema.ROLE_PARAM,
+        OpenApiParameter('q', str, description='Search name, email or phone'),
+        OpenApiParameter('approval', str, enum=['pending', 'approved', 'rejected']),
+    ], responses=UserSerializer(many=True))
     def get(self, request):
-        users = User.objects.all().order_by('role', 'full_name')
+        users = User.objects.select_related('cooperative').order_by('role', 'full_name')
         role_filter = request.query_params.get('role')
         if role_filter:
             users = users.filter(role=role_filter)
+        approval = request.query_params.get('approval')
+        if approval:
+            users = users.filter(approval_status=approval)
+        q = (request.query_params.get('q') or '').strip()
+        if q:
+            users = users.filter(Q(full_name__icontains=q) | Q(email__icontains=q) | Q(phone_number__icontains=q))
+        users = users[:300]
         serializer = UserSerializer(users, many=True)
         return Response(serializer.data)
 

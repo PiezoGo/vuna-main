@@ -1,8 +1,9 @@
 from django.contrib.auth import password_validation
 from decimal import Decimal
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from .models import ChatMessage, Checkout, Cooperative, DeliveryAddress, MpesaPayment, Order, Product, User
+from .models import ChatMessage, Checkout, Cooperative, DeliveryAddress, MpesaPayment, Order, Product, Trip, User
 from .phone import normalize_ke_phone
 
 
@@ -30,11 +31,11 @@ class UserSerializer(serializers.ModelSerializer):
             'buyer_type', 'farmer_delivery_time',
             'vehicle_type', 'is_driver_active', 'current_order',
             'approval_status', 'rejection_reason', 'must_change_password',
-            'cooperative', 'cooperative_name', 'agent',
+            'cooperative', 'cooperative_name', 'agent', 'is_active', 'date_joined',
         ]
         read_only_fields = [
             'uid', 'role', 'is_driver_active', 'current_order',
-            'approval_status', 'rejection_reason', 'must_change_password', 'agent',
+            'approval_status', 'rejection_reason', 'must_change_password', 'agent', 'is_active', 'date_joined',
         ]
 
 
@@ -193,11 +194,13 @@ class OrderSerializer(serializers.ModelSerializer):
             'created_at',
             'checkout', 'is_paid', 'refunded', 'decided_at', 'answer_deadline',
             'delivery_date', 'delivery_area', 'product_min_order_quantity',
+            'trip', 'collected_at', 'delivered_at', 'paid_out_at', 'payout_reference', 'refunded_at',
         ]
         read_only_fields = [
             'buyer', 'farmer', 'driver', 'total_price', 'logistics_fee', 'platform_fee',
             'farmer_earnings', 'status', 'mock_payment_id', 'farmer_paid', 'created_at',
             'checkout', 'is_paid', 'refunded', 'decided_at',
+            'trip', 'collected_at', 'delivered_at', 'paid_out_at', 'payout_reference', 'refunded_at',
         ]
 
     def validate_quantity(self, value):
@@ -459,3 +462,137 @@ class FarmerSummarySerializer(serializers.Serializer):
     earnings_due = serializers.DecimalField(max_digits=12, decimal_places=2)
     paid_out = serializers.DecimalField(max_digits=12, decimal_places=2)
     earned_this_month = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+
+class TripStopSerializer(serializers.ModelSerializer):
+    """An order line as the driver and admin see it on a trip: pickup and drop-off details."""
+    product_title = serializers.ReadOnlyField(source='product.title')
+    unit = serializers.ReadOnlyField(source='product.unit')
+    farmer_name = serializers.ReadOnlyField(source='farmer.full_name')
+    farmer_phone = serializers.ReadOnlyField(source='farmer.phone_number')
+    farmer_city = serializers.ReadOnlyField(source='farmer.city')
+    farmer_market = serializers.ReadOnlyField(source='farmer.market')
+    buyer_name = serializers.ReadOnlyField(source='buyer.full_name')
+    contact_name = serializers.CharField(source='checkout.contact_name', read_only=True, default=None)
+    contact_phone = serializers.CharField(source='checkout.contact_phone', read_only=True, default=None)
+    area = serializers.CharField(source='checkout.area', read_only=True, default=None)
+    details = serializers.CharField(source='checkout.details', read_only=True, default=None)
+    landmark = serializers.CharField(source='checkout.landmark', read_only=True, default=None)
+
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'stop_order', 'status', 'quantity', 'unit', 'product_title',
+            'farmer_name', 'farmer_phone', 'farmer_city', 'farmer_market',
+            'buyer_name', 'contact_name', 'contact_phone', 'area', 'details', 'landmark',
+            'collected_at', 'delivered_at',
+        ]
+        read_only_fields = fields
+
+
+class TripSerializer(serializers.ModelSerializer):
+    driver_name = serializers.ReadOnlyField(source='driver.full_name')
+    driver_phone = serializers.ReadOnlyField(source='driver.phone_number')
+    stops = serializers.SerializerMethodField()
+    stop_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Trip
+        fields = [
+            'id', 'delivery_date', 'driver', 'driver_name', 'driver_phone', 'status', 'notes', 'created_at',
+            'stop_count', 'stops',
+        ]
+        read_only_fields = fields
+
+    @extend_schema_field(TripStopSerializer(many=True))
+    def get_stops(self, obj):
+        orders = obj.orders.select_related('product', 'farmer', 'buyer', 'checkout').order_by('stop_order', 'id')
+        return TripStopSerializer(orders, many=True).data
+
+    def get_stop_count(self, obj) -> int:
+        return obj.orders.count()
+
+
+class TripCreateSerializer(serializers.Serializer):
+    delivery_date = serializers.DateField()
+    driver = serializers.UUIDField()
+    orders = serializers.ListField(child=serializers.IntegerField(), allow_empty=False, max_length=100)
+    notes = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class TripOrdersSerializer(serializers.Serializer):
+    orders = serializers.ListField(child=serializers.IntegerField(), max_length=100)
+
+
+class OrderStepSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=['collected', 'in_transit', 'delivered', 'completed'])
+    note = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class ReferenceSerializer(serializers.Serializer):
+    reference = serializers.RegexField(r'^[A-Za-z0-9]{6,20}$', error_messages={'invalid': 'Enter the M-Pesa reference, e.g. SKA1B2C3D4.'})
+
+
+class PayoutLineSerializer(serializers.ModelSerializer):
+    product_title = serializers.ReadOnlyField(source='product.title')
+    farmer_name = serializers.ReadOnlyField(source='farmer.full_name')
+    farmer_phone = serializers.ReadOnlyField(source='farmer.phone_number')
+    unit = serializers.ReadOnlyField(source='product.unit')
+    due_by = serializers.SerializerMethodField()
+    minutes_left = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = [
+            'id', 'product_title', 'quantity', 'unit', 'farmer_name', 'farmer_phone', 'farmer_earnings',
+            'status', 'collected_at', 'due_by', 'minutes_left',
+        ]
+        read_only_fields = fields
+
+    def _due(self, obj):
+        from datetime import timedelta
+        from .fulfilment import PAYOUT_PROMISE_HOURS
+        return obj.collected_at + timedelta(hours=PAYOUT_PROMISE_HOURS) if obj.collected_at else None
+
+    def get_due_by(self, obj) -> str | None:
+        due = self._due(obj)
+        return due.isoformat() if due else None
+
+    def get_minutes_left(self, obj) -> int | None:
+        """Minutes until the 4-hour promise; negative once overdue."""
+        from django.utils import timezone
+        due = self._due(obj)
+        return int((due - timezone.now()).total_seconds() // 60) if due else None
+
+
+class RefundLineSerializer(serializers.ModelSerializer):
+    product_title = serializers.ReadOnlyField(source='product.title')
+    buyer_name = serializers.ReadOnlyField(source='buyer.full_name')
+    buyer_phone = serializers.ReadOnlyField(source='buyer.phone_number')
+    payment_reference = serializers.ReadOnlyField(source='mock_payment_id')
+
+    class Meta:
+        model = Order
+        fields = ['id', 'product_title', 'quantity', 'buyer_name', 'buyer_phone', 'total_price', 'status', 'payment_reference', 'created_at']
+        read_only_fields = fields
+
+
+class AdminOverviewSerializer(serializers.Serializer):
+    waiting_for_farmers = serializers.IntegerField()
+    awaiting_payment = serializers.IntegerField()
+    paid_without_trip = serializers.IntegerField()
+    trips_today = serializers.IntegerField()
+    payouts_due = serializers.IntegerField()
+    payouts_overdue = serializers.IntegerField()
+    refunds_to_send = serializers.IntegerField()
+    pending_farmers = serializers.IntegerField()
+    week_gmv = serializers.DecimalField(max_digits=14, decimal_places=2)
+    week_orders = serializers.IntegerField()
+
+
+class AgentLinkSerializer(serializers.Serializer):
+    agent = serializers.UUIDField(allow_null=True)
+
+
+class UserActiveSerializer(serializers.Serializer):
+    active = serializers.BooleanField()
