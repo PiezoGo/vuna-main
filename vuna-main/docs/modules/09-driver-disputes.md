@@ -54,3 +54,20 @@ General chat between any users, an inbox and real-time messages (the Chat module
 - [ ] Driver and buyer exchange messages on a drop-off; another driver gets 403 on that thread
 - [ ] Buyer reports a problem with a photo; admin refunds part → the refund queue shows the partial amount; the farmer sees the deduction
 - [ ] A driver can't act on another driver's trip; buyers and farmers get 403 on driver endpoints
+
+## Done
+**Backend** (`api/delivery.py`, `api/delivery_views.py`, migration `0012_delivery_proof_problems`)
+- Order fields `pickup_photo`, `pickup_condition`, `pickup_note`, `delivery_photo`, `confirmed_at`, `refund_amount`, `payout_deduction`; `Problem` model; `ChatMessage.order`.
+- Driver: `GET /api/driver/trips/`, `GET /api/driver/orders/{id}/`, `POST …/collect/` (photo, condition, note), `POST …/deliver/` (photo). Only the trip's own driver.
+- Buyer: `GET /api/orders/awaiting-confirmation/`, `POST /api/orders/{id}/confirm/`, `POST /api/orders/{id}/problems/` (reason, description, photo). Nothing completes by itself.
+- Chat: `GET/POST /api/orders/{id}/messages/` (trip driver and buyer only; closed once completed).
+- Admin: `GET /api/admin/problems/`, `POST …/{id}/decide/` (refund full or part, or reject; fault farmer or VUNA). Farmer-fault refunds cost the farmer their 92% share of the refund (`pricing.farmer_share_of_refund`), taken off their next payout(s) (`fulfilment.payout_rows`). Payout lines with an open problem show "on hold". The refunds queue shows the decided amount. The overview counts open problems and lines delivered over 24 h ago and not confirmed.
+- Photos are checked by content type and size (no Pillow dependency), like listing photos.
+- Tests: `api/tests/test_delivery.py`.
+
+**Web**
+- `/driver` (today and upcoming trips: numbered pickups then drop-offs, call, map), `/driver/stops/[id]` (camera photo shrunk on the device, condition check, chat with the buyer on drop-offs), `/driver/history`.
+- Buyer order page: delivery photo, "Confirm received", "Report a problem" (with photo), chat with the driver. A green "deliveries to confirm" banner shows under the site header until they act.
+- `/admin/problems`; payout queue shows deductions and holds; farmer earnings show refunds taken off.
+
+**Deploy:** `python manage.py migrate` on Render (migration 0012). No new environment variables.

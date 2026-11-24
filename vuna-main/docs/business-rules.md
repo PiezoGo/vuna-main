@@ -38,6 +38,7 @@ The backend calculates all of this (`backend/api/pricing.py`). The website and a
 - Stock is reduced when the order is placed.
 - An admin assigns one driver to a paid order. The driver marks it collected → in transit → delivered. An admin marks it completed, which also marks the farmer as paid.
   *Updated 2026-11-24 (Module 8):* admins put paid lines on a daily **trip** with one driver. Until the driver app, admins mark lines collected / delivered / completed by hand (each step recorded with who and when). Farmer payouts and buyer refunds are recorded separately by an admin with the M-Pesa reference; in the new dashboard, completing a line no longer marks the farmer paid (the legacy site still does). Users are deactivated, never deleted.
+  *Updated 2026-11-24 (Module 9):* drivers mark each pickup collected (photo + condition check) and each drop-off delivered (photo). Nothing completes by itself: the buyer confirms receipt or reports a problem (with a photo); unconfirmed lines stay "delivered" and are flagged to admins after 24 h. The admin refunds full or part, or rejects, and marks the fault: farmer-fault refunds take the farmer's 92% share of the refund off their next payout; VUNA-fault refunds don't touch the farmer. Drivers see phone numbers and addresses only for stops on their own trips and can chat with the buyer about each delivery.
 
 ### Payment
 - Mock M-Pesa for now. The real one will be Daraja STK Push (a prompt on the buyer's phone), built when credentials are available.
