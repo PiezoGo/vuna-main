@@ -5,6 +5,7 @@ import { Check, MessageSquare, TriangleAlert } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
 
+import { CallButton } from "@/components/call/call-button";
 import { DeliveryChat } from "@/components/delivery/delivery-chat";
 import { ReportProblemDialog } from "@/components/order/report-problem-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +82,13 @@ export function DeliveryActions({ line }: { line: Order }) {
               <TriangleAlert /> Report a problem
             </Button>
           </>
+        ) : null}
+        {canChat ? (
+          <CallButton
+            uid={line.driver}
+            name={line.driver_name ?? "your driver"}
+            orderId={line.id}
+          />
         ) : null}
         {canChat ? (
           <Button

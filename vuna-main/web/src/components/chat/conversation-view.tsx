@@ -6,6 +6,7 @@ import Link from "next/link";
 import * as React from "react";
 import { toast } from "sonner";
 
+import { CallButton } from "@/components/call/call-button";
 import { QueryError } from "@/components/admin/query-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -59,6 +60,7 @@ export function ConversationView({ uid, myId }: { uid: string; myId: string }) {
             {partner.city ? ` · ${partner.city}` : ""}
           </p>
         </div>
+        <CallButton uid={partner.uid} name={partner.full_name} className="ml-auto" />
       </div>
       <div className="flex-1 space-y-2 overflow-y-auto px-4 py-4" aria-live="polite">
         {messages.length === 0 ? (

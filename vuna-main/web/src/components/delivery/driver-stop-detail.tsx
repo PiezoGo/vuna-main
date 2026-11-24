@@ -5,6 +5,7 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { CallButton } from "@/components/call/call-button";
 import { QueryError } from "@/components/admin/query-state";
 import { DeliveryChat } from "@/components/delivery/delivery-chat";
 import { StopActionForm } from "@/components/delivery/stop-action-form";
@@ -59,6 +60,12 @@ export function DriverStopDetail({ id, kind }: { id: number; kind: "pickup" | "d
               <Phone className="size-4" aria-hidden /> Call {formatKePhone(phone)}
             </a>
           ) : null}
+          <CallButton
+            uid={pickup ? stop.farmer : stop.buyer}
+            name={pickup ? stop.farmer_name : stop.buyer_name}
+            orderId={stop.id}
+            size="default"
+          />
           {map ? (
             <a
               href={map}

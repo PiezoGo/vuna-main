@@ -5,6 +5,7 @@ import { Check, Inbox, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
+import { CallButton } from "@/components/call/call-button";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -87,6 +88,12 @@ function IncomingRow({ order }: { order: Order }) {
           {order.delivery_area ? ` · ${order.delivery_area}` : ""}
           {order.delivery_date ? ` · deliver ${formatDate(order.delivery_date)}` : ""}
         </p>
+        <CallButton
+          uid={order.buyer}
+          name={order.buyer_name}
+          orderId={order.id}
+          className="w-fit"
+        />
         <p className="text-sm">
           You earn <span className="font-semibold">{formatKES(order.farmer_earnings)}</span>
           {order.is_paid ? (
