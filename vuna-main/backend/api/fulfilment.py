@@ -23,6 +23,15 @@ STEPS = {
 }
 
 
+def lock_orders(queryset):
+    """
+    Lock only the order rows. `trip` and `checkout` can be empty, so select_related() makes an
+    outer join, and PostgreSQL refuses FOR UPDATE on the nullable side of one (SQLite has no
+    row locks, so tests never saw it). Always lock order querysets that join through here.
+    """
+    return queryset.select_for_update(of=('self',))
+
+
 def log(order: Order, status: str, actor: User | None, note: str = '') -> None:
     OrderEvent.objects.create(order=order, status=status, actor=actor, note=note[:255])
 
@@ -47,7 +56,7 @@ def create_trip(*, actor: User, delivery_date, driver: User, order_ids: list[int
     _check_driver(driver)
     if len(order_ids) != len(set(order_ids)):
         raise ValidationError({'orders': ['An order is listed twice.']})
-    orders = list(Order.objects.select_for_update().select_related('checkout', 'trip').filter(id__in=order_ids))
+    orders = list(lock_orders(Order.objects.select_related('checkout', 'trip').filter(id__in=order_ids)))
     if len(orders) != len(order_ids) or not orders:
         raise ValidationError({'orders': ['Choose paid orders to put on this trip.']})
     errors = [msg for o in orders if (msg := _schedulable(o, delivery_date))]
@@ -79,7 +88,7 @@ def set_trip_orders(*, actor: User, trip: Trip, order_ids: list[int]) -> Trip:
         if oid not in order_ids:
             _unschedule(order, actor, f'Removed from trip #{trip.id}')
     new_ids = [oid for oid in order_ids if oid not in current]
-    added = list(Order.objects.select_for_update().select_related('checkout', 'trip').filter(id__in=new_ids))
+    added = list(lock_orders(Order.objects.select_related('checkout', 'trip').filter(id__in=new_ids)))
     errors = [msg for o in added if (msg := _schedulable(o, trip.delivery_date))]
     if len(added) != len(new_ids):
         errors.append('One of the orders no longer exists.')
@@ -126,7 +135,7 @@ def cancel_trip(*, actor: User, trip: Trip) -> Trip:
 @transaction.atomic
 def advance(*, actor: User, order: Order, to: str, note: str = '') -> Order:
     """Move an order line one fulfilment step (collected → in transit → delivered → completed)."""
-    order = Order.objects.select_for_update().select_related('trip').get(pk=order.pk)
+    order = lock_orders(Order.objects.select_related('trip')).get(pk=order.pk)
     allowed_from = STEPS.get(to)
     if allowed_from is None:
         raise ValidationError({'status': [f'Unknown step "{to}".']})

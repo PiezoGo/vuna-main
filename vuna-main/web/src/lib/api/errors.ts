@@ -26,6 +26,11 @@ const GENERIC: Record<number, string> = {
   429: "Too many requests. Please wait a moment and try again.",
 };
 
+/** Server error pages (Django's "Server Error (500)", proxies) are HTML: never show them as text. */
+function looksLikeHtml(text: string): boolean {
+  return /^\s*</.test(text) || /<\/?(html|body|head|h1|p)\b/i.test(text);
+}
+
 /**
  * Turn any DRF error body into an ApiError. DRF uses several shapes:
  * {"error": "..."}, {"detail": "..."}, {"field": ["..."]}, {"non_field_errors": ["..."]}.
@@ -38,7 +43,9 @@ export function toApiError(status: number, body: unknown): ApiError {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return new ApiError(
       status,
-      typeof body === "string" && body.length < 300 && body ? body : fallback,
+      typeof body === "string" && body && body.length < 300 && !looksLikeHtml(body)
+        ? body
+        : fallback,
     );
   }
 

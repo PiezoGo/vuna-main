@@ -27,4 +27,15 @@ describe("toApiError", () => {
     expect(toApiError(502, null).message).toMatch(/Something went wrong/);
     expect(toApiError(404, "").message).toMatch(/couldn't find/);
   });
+
+  it("never shows a server error page as the message", () => {
+    const page =
+      '<!doctype html> <html lang="en"> <head> <title>Server Error (500)</title> </head> <body> <h1>Server Error (500)</h1><p></p> </body> </html>';
+    expect(toApiError(500, page).message).toBe(
+      "Something went wrong on our side. Please try again.",
+    );
+    expect(toApiError(400, "Plain text from the server").message).toBe(
+      "Plain text from the server",
+    );
+  });
 });
