@@ -4,6 +4,7 @@
 - `layout/`: Navbar, Footer, DashboardShell, Sidebar.
 - `<feature>/` (`product`, `cart`, `checkout`, `order`, `chat`, `call`, `dashboard`, `admin`, `delivery`): VUNA-specific components built from `ui/` primitives.
 - `delivery/`: the driver app (trips, stops, photo capture) and the per-delivery chat (Module 9).
+- `notifications/`: live connection, bell, sidebar badges; `chat/`: inbox, conversation, message button (Module 10).
 - `admin/`: the operations dashboard (Module 8): overview cards, order steps, trips, payout/refund queues, drivers and users.
 
 Rules:

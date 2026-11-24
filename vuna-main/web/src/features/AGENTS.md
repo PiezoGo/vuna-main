@@ -11,6 +11,7 @@ A feature folder may contain:
 
 `admin/` splits its hooks by area (`queries.ts` holds the `adminKeys` factory; `ops-queries.ts` orders and trips; `money-queries.ts` payouts and refunds; `user-queries.ts` accounts) plus pure helpers `time.ts` (Nairobi dates, payout countdown) and `steps.ts`.
 `delivery/` holds the driver, buyer-confirmation, problem and delivery-chat hooks (`deliveryKeys`) and `maps.ts` (map links, problem reasons).
+`notifications/` (badge summary, bell list, mark read), `realtime/` (the live connection hook, event schema, connection store) and `chat/` (inbox, conversation, send) belong to Module 10.
 
 Rules: no JSX-heavy UI here (that goes in `components/`), and no raw network calls (use `@/lib/api`). Pure functions get unit tests.
 `payments/` exposes a `PaymentProvider` interface. `MockProvider` is used today; `MpesaStkProvider` drops in later without UI changes.

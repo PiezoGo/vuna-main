@@ -134,7 +134,7 @@ Each module: plan in `docs/modules/<name>.md` → your approval → build → li
 | 7 | **Farmer dashboard** | Listings CRUD with Cloudinary uploads, incoming orders, earnings |
 | 8 | **Admin dashboard** | Paid orders → assign driver, all orders, complete order, drivers, users |
 | 9 | **Driver** | Current job, status updates (collected → in transit → delivered), history |
-| 10 | **Chat** | Django Channels + Redis, inbox, conversation, unread counts (polling fallback) |
+| 10 | **Notifications + chat** | Django Channels (in-memory layer, one process; no Redis by decision, Nov 24), sidebar badges, bell, sound, inbox, conversation, unread counts (60 s fallback). See `modules/10-notifications-chat.md` |
 | 11 | **Calls** | LiveKit audio/video from chat and orders, incoming-call ringing via Channels |
 | 12 | **Cut-over** | Point Vercel at `web/`, redirects from old URLs (`/buyer/dashboard` → `/market` etc.), then remove `frontend/` **only with your approval** |
 

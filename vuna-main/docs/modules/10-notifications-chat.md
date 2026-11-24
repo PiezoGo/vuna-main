@@ -1,6 +1,6 @@
 # Module 10: Notifications and chat (real-time)
 
-Status: **plan, revised Nov 24 (no Redis), waiting for "go"**. Branch `refine`. Merges the planned Chat module (migration plan Module 10: Channels, inbox, conversations, unread counts) with in-app notifications. Calls stay Module 11 and Cut-over Module 12.
+Status: **approved Nov 24, built**. Branch `refine`. Merges the planned Chat module (migration plan Module 10: Channels, inbox, conversations, unread counts) with in-app notifications. Calls stay Module 11 and Cut-over Module 12.
 
 ## Goal
 Nobody misses work waiting for them, and people can talk to each other on the site.
@@ -95,3 +95,25 @@ A short, soft two-note chime for a new bell item or chat message, played only wh
 - [ ] Buyer and farmer chat in two browsers: messages appear instantly, unread counts and "Seen" update, the mute switch silences the chime
 - [ ] Stop the backend for a minute: the site keeps working, reconnects by itself, nothing is missed
 - [ ] Nobody receives another person's notifications or messages; works at 375 px
+
+## Done
+**Backend**
+- `Notification` model (migration `0013_notifications`); `api/notifications.py` (`notify()`, badge `summary()`, mark read, 60-day prune in `expire_orders`); `api/events.py` (who hears about what, called from `checkout.py`, `payments.py`, `fulfilment.py`, `delivery.py`, sign-up).
+- Live connection: `api/realtime.py` (push after commit; signals on Order, Trip, Problem, new farmer and ChatMessage refresh the right people's badges), `api/consumers.py` (`/ws/?ticket=`; signed one-time ticket, 60 s), `backend/asgi.py` (Origin check against `WS_ALLOWED_ORIGINS`), in-memory channel layer.
+- Endpoints: `GET /api/notifications/summary/`, `GET /api/notifications/`, `POST /api/notifications/read/`, `POST /api/realtime/ticket/`, `GET /api/messages/inbox/`, `GET/POST /api/messages/with/{uid}/`. The legacy `POST /api/messages/` follows the same who-may-message-whom rule (`api/chat.py`).
+- New packages: `channels`, `uvicorn`, `websockets` (no Redis, no daphne).
+- Tests: `test_notifications.py` (badges per role, events, privacy, live socket with tickets and origins, push after commit), `test_chat.py`.
+
+**Web**
+- `LiveConnection` (mounted once in `AppProviders`): socket, reconnect (1 s, 2 s, 5 s, then 30 s), toasts and chime; tab title "(n) …".
+- Sidebar badges (`NavBadge`), red dot on the phone menu button, bell (dashboard top bar and public header, also on phones) with mark read / all read and a mute switch; buyer menu shows Orders and Messages counts.
+- `/messages` (inbox) and `/messages/[uid]` (conversation, "Seen", Enter to send); "Message" on the farmer profile; drivers and admins get Messages in their sidebar.
+- `NEXT_PUBLIC_WS_URL` (optional). Without it, or under the old gunicorn start command, everything works with 60-second checks.
+
+**Not done:** "payout overdue" bell items (the Payouts badge turns red instead; a time-based alert needs a scheduler), sound or toast for events while the tab is closed (web push, later).
+
+**Deploy (Render, then Vercel):**
+1. Render backend → Settings → Start Command: `uvicorn backend.asgi:application --host 0.0.0.0 --port $PORT` (one process; don't add `--workers`).
+2. Render backend → Environment: `WS_ALLOWED_ORIGINS` = your Vercel URL, e.g. `https://vuna-web.vercel.app`.
+3. Deploy (runs `migrate`: migration 0013).
+4. Vercel → Environment Variables: `NEXT_PUBLIC_WS_URL` = `wss://<your-render-service>.onrender.com/ws/`, then redeploy.
