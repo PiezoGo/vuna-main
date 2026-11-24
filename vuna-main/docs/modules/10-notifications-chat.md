@@ -1,6 +1,6 @@
 # Module 10: Notifications and chat (real-time)
 
-Status: **plan, revised Nov 24 with your answers, waiting for "go"**. Branch `refine`. Merges the planned Chat module (migration plan Module 10: Channels, inbox, conversations, unread counts) with in-app notifications. Calls stay Module 11 and Cut-over Module 12.
+Status: **plan, revised Nov 24 (no Redis), waiting for "go"**. Branch `refine`. Merges the planned Chat module (migration plan Module 10: Channels, inbox, conversations, unread counts) with in-app notifications. Calls stay Module 11 and Cut-over Module 12.
 
 ## Goal
 Nobody misses work waiting for them, and people can talk to each other on the site.
@@ -11,12 +11,12 @@ Nobody misses work waiting for them, and people can talk to each other on the si
 | Piece | Choice | Why |
 |---|---|---|
 | Real-time server | **Django Channels** on an ASGI server (**uvicorn**). Render's start command changes from `gunicorn backend.wsgi` to `uvicorn backend.asgi:application --host 0.0.0.0 --port $PORT` (one process on the free plan) | Agreed in the migration plan; same codebase, permissions and tests as the REST API. Normal API requests keep working unchanged under ASGI |
-| Channel layer | **Render Key Value (Redis), free tier**, with `channels-redis`. In-memory layer when `REDIS_URL` is empty (local development, tests) | In-memory only works inside one process: the `expire_orders` cron job (a separate Render service) and any second worker couldn't send live events. Free Key Value is enough for this (25 MB, messages are tiny and nothing needs to be stored there) |
+| Channel layer | **In-memory** (Channels' `InMemoryChannelLayer`). **No Redis** (your decision) | Works because the backend runs as **one** uvicorn process on Render. It must stay one process: a second worker or instance couldn't reach the first one's sockets. Events created by the separate `expire_orders` cron job (expired orders) aren't pushed live; they're saved and show at the next refresh (within 60 seconds, or straight away when the tab regains focus) |
 | Connecting from the browser | The browser connects **straight to the Render host** (`wss://…onrender.com/ws/`), because Vercel can't forward websockets. Sign-in token stays in the httpOnly cookie: the site first asks its own `/api/realtime/ticket` route, which asks Django for a **one-time ticket valid 60 seconds**; the socket sends that ticket. Django checks the ticket and the Origin (only our Vercel and local addresses) | The real login token never reaches the browser's JavaScript, the same rule as today |
 | Who gets what | One group per user (`user.<uid>`) for their bell, badges and messages, and one for admins (`role.admin`) for shared queues | Each person only receives their own events |
 | What's sent | Small events: `notification` (a new bell item), `badges` (counts changed: the site refetches the counts), `message` (a chat message), `read` (messages read) | Counts are always computed by the server, never trusted from the event |
 | When the socket drops | Reconnects automatically (1 s, 2 s, 5 s, then every 30 s). While disconnected the site falls back to asking every 60 seconds, and refetches everything when the socket comes back or the tab regains focus | Render's free plan sleeps after 15 minutes idle; nothing is missed, it's just slower until it wakes |
-| RAM | Adds `channels`, `channels-redis`, `uvicorn[standard]` (about 30–50 MB more on the server). One process fits the free plan's 512 MB | No new paid service |
+| RAM | Adds `channels` and `uvicorn[standard]` (about 30–50 MB more on the server). One process fits the free plan's 512 MB | No new service at all |
 
 ## Who sees what
 | Role | Sidebar badges (counts) | Bell items |
@@ -37,7 +37,7 @@ A short, soft two-note chime for a new bell item or chat message, played only wh
 ### Backend
 | Change | Details |
 |---|---|
-| ASGI + Channels | `asgi.py` routes `/ws/` to a consumer; settings for the channel layer (`REDIS_URL`) and allowed websocket origins |
+| ASGI + Channels | `asgi.py` routes `/ws/` to a consumer; in-memory channel layer; allowed websocket origins |
 | Ticket | `POST /api/realtime/ticket/` (signed in) returns a one-time ticket stored for 60 s |
 | `Notification` model | user, kind, title, body, link, `read_at`, `created_at`; indexed on (user, read_at) |
 | `notify()` helper | Called at the events above in `checkout.py`, `payments.py`, `fulfilment.py`, `delivery.py`, `accounts.py`; saves the bell item and pushes it live **after the database commit**; never makes the action fail |
@@ -57,9 +57,8 @@ A short, soft two-note chime for a new bell item or chat message, played only wh
 | Sound | `lib/chime.ts` with the mute setting |
 
 ### Render and Vercel changes (you do these; I'll give exact steps)
-- Backend: start command → `uvicorn …`, add a free **Key Value** instance and set `REDIS_URL`, set `WS_ALLOWED_ORIGINS` (your Vercel URL).
+- Backend: start command → `uvicorn backend.asgi:application --host 0.0.0.0 --port $PORT` (one process), set `WS_ALLOWED_ORIGINS` (your Vercel URL).
 - Website: `NEXT_PUBLIC_WS_URL` = `wss://<render-host>/ws/` (not a secret).
-- The `expire_orders` cron job also gets `REDIS_URL`.
 
 ## Build order
 1. Backend notifications: model, `notify()` at each event, summary and bell endpoints, tests (works even before real-time).
@@ -80,12 +79,12 @@ A short, soft two-note chime for a new bell item or chat message, played only wh
 3. "A confirmation" for buyers means the **farmer** accepting their order.
 4. Admins: a count on Trips for paid orders without a trip, no bell item per order.
 5. A soft sound for new bell items and messages, with a mute switch.
+6. No Redis: in-memory channel layer, one backend process. Moving to Redis later (if VUNA needs more than one server process) is a settings change, not a rewrite.
 
 ## Open questions (my recommendation in brackets)
-1. Use Render's free Key Value (Redis) for the channel layer? [Yes, see above. If you'd rather not add it, in-memory works for the single web process, but events from the cron job (expired orders) would only show at the next refresh]
-2. Should mute be remembered per device or follow the account to every device? [Per device: no extra database field, and phones and laptops often want different settings]
-3. Who may start a chat? [Buyers ↔ farmers freely (business rule 20); drivers only with the buyers on their trips; admins can message anyone; farmers can't message other farmers]
-4. Sound on by default? [Yes, with the mute switch in the bell menu]
+1. Should mute be remembered per device or follow the account to every device? [Per device: no extra database field, and phones and laptops often want different settings]
+2. Who may start a chat? [Buyers ↔ farmers freely (business rule 20); drivers only with the buyers on their trips; admins can message anyone; farmers can't message other farmers]
+3. Sound on by default? [Yes, with the mute switch in the bell menu]
 
 ## Test checklist
 - [ ] Backend tests pass; lint, type-check, unit tests and build pass
