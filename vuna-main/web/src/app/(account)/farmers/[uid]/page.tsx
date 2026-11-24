@@ -9,15 +9,15 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getFarmerProfile } from "@/lib/api/endpoints/catalog";
 import { requireUser } from "@/lib/auth/session";
+import { MessageButton } from "@/components/chat/message-button";
 import { formatKePhone } from "@/lib/phone";
 import { UUID_PATTERN as UUID } from "@/lib/uuid";
 
 export const metadata: Metadata = { title: "Farmer", robots: { index: false, follow: false } };
 
-
 export default async function FarmerProfilePage({ params }: { params: Promise<{ uid: string }> }) {
   const { uid } = await params;
-  await requireUser(`/farmers/${uid}`);
+  const viewer = await requireUser(`/farmers/${uid}`);
   if (!UUID.test(uid)) notFound();
   const farmer = await getFarmerProfile(uid);
   if (!farmer || farmer.role !== "farmer") notFound();
@@ -56,6 +56,9 @@ export default async function FarmerProfilePage({ params }: { params: Promise<{ 
         <div className="flex gap-2 sm:flex-col sm:items-end">
           <Badge variant="success">{farmer.completed_sales} completed sales</Badge>
           <Badge variant="muted">{farmer.total_listings} live listings</Badge>
+          {viewer.role === "buyer" || viewer.role === "admin" ? (
+            <MessageButton uid={farmer.uid} name={farmer.full_name} />
+          ) : null}
         </div>
       </div>
 
