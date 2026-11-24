@@ -235,6 +235,17 @@ class Order(models.Model):
     refund_reference = models.CharField(max_length=32, blank=True, default='')
     refunded_at = models.DateTimeField(null=True, blank=True)
 
+    # Delivery proof and confirmation (Module 9)
+    pickup_photo = models.URLField(max_length=500, blank=True, default='')
+    pickup_condition = models.CharField(max_length=10, blank=True, default='', choices=[('good', 'Good'), ('issue', 'Issue')])
+    pickup_note = models.CharField(max_length=255, blank=True, default='')
+    delivery_photo = models.URLField(max_length=500, blank=True, default='')
+    confirmed_at = models.DateTimeField(null=True, blank=True)  # buyer confirmed receipt
+    # Partial or full refund decided on a problem report (null = none, or the whole line when `refunded`).
+    refund_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # Farmer-fault refunds taken off this payout when it was recorded.
+    payout_deduction = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
     def __str__(self):
         return f"Order #{self.id} - {self.product.title} ({self.status})"
 
@@ -268,6 +279,38 @@ class OrderEvent(models.Model):
     status = models.CharField(max_length=20)
     actor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='order_events')
     note = models.CharField(max_length=255, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+
+class Problem(models.Model):
+    """A buyer's report that a delivered line was wrong; an admin decides the refund."""
+    REASON_CHOICES = [
+        ('quality', 'Poor quality'),
+        ('quantity', 'Wrong quantity'),
+        ('wrong_item', 'Wrong item'),
+        ('damaged', 'Damaged'),
+        ('other', 'Other'),
+    ]
+    STATUS_CHOICES = [('open', 'Open'), ('refunded', 'Refunded'), ('rejected', 'Rejected')]
+    FAULT_CHOICES = [('farmer', 'Farmer'), ('vuna', 'VUNA')]
+
+    order = models.ForeignKey('Order', on_delete=models.CASCADE, related_name='problems')
+    buyer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='problems')
+    reason = models.CharField(max_length=12, choices=REASON_CHOICES)
+    description = models.TextField(max_length=1000)
+    photo = models.URLField(max_length=500)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='open')
+    fault = models.CharField(max_length=10, choices=FAULT_CHOICES, blank=True, default='')
+    refund_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # Farmer-fault only: the farmer's share of the refund, taken off their next payout.
+    farmer_deduction = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    deducted_on = models.ForeignKey('Order', on_delete=models.SET_NULL, null=True, blank=True, related_name='deductions')
+    admin_note = models.CharField(max_length=255, blank=True, default='')
+    decided_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='problems_decided')
+    decided_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -309,6 +352,8 @@ class ChatMessage(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
     receiver = models.ForeignKey(User, on_delete=models.CASCADE, related_name='received_messages')
     message = models.TextField()
+    # Set for the delivery chat between a trip's driver and the buyer (Module 9).
+    order = models.ForeignKey('Order', on_delete=models.CASCADE, null=True, blank=True, related_name='messages')
     timestamp = models.DateTimeField(auto_now_add=True)
     is_read = models.BooleanField(default=False)
 

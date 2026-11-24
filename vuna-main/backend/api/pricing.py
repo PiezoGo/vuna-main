@@ -43,3 +43,13 @@ def price_order(base_price_per_unit: Decimal, quantity: int) -> OrderPricing:
         platform_fee=platform_fee,
         farmer_earnings=farmer_earnings,
     )
+
+
+def farmer_share_of_refund(refund_amount: Decimal, buyer_total: Decimal, farmer_earnings: Decimal) -> Decimal:
+    """
+    What a farmer-fault refund takes off the farmer: their 92% share of the refunded part.
+    A full refund of a KSh 1,200 line (farmer earned 920) costs the farmer 920; VUNA absorbs its fees.
+    """
+    if not buyer_total:
+        return Decimal('0.00')
+    return _money(Decimal(refund_amount) * Decimal(farmer_earnings) / Decimal(buyer_total))

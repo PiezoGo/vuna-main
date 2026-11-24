@@ -41,3 +41,7 @@ export type PayoutLine = Schemas["PayoutLine"];
 export type RefundLine = Schemas["RefundLine"];
 export type StaffCredentials = Schemas["StaffCredentials"];
 export type OrderStep = Schemas["OrderStepRequest"]["status"];
+export type Problem = Schemas["Problem"];
+export type ProblemSummary = Schemas["ProblemSummary"];
+export type ProblemReason = Schemas["ProblemReasonEnum"];
+export type DeliveryMessage = Schemas["DeliveryMessage"];

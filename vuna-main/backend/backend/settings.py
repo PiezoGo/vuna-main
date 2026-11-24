@@ -195,6 +195,8 @@ SPECTACULAR_SETTINGS = {
         'ProductUnitEnum': 'api.models.Product.UNIT_CHOICES',
         'OrderStatusEnum': 'api.models.Order.STATUS_CHOICES',
         'UserRoleEnum': 'api.models.User.ROLE_CHOICES',
+        'ProblemStatusEnum': 'api.models.Problem.STATUS_CHOICES',
+        'ProblemReasonEnum': 'api.models.Problem.REASON_CHOICES',
     },
 }
 

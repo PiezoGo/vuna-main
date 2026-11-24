@@ -17,7 +17,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import fulfilment, schema
-from .models import Order, Trip, User
+from .models import Order, Problem, Trip, User
 from .permissions import IsAdmin
 from .serializers import (
     AdminOverviewSerializer,
@@ -61,6 +61,8 @@ class AdminOverviewView(APIView):
             'pending_farmers': User.objects.filter(role='farmer', approval_status='pending', is_active=True).count(),
             'week_gmv': week.aggregate(total=Sum('total_price'))['total'] or 0,
             'week_orders': week.count(),
+            'problems_open': Problem.objects.filter(status='open').count(),
+            'unconfirmed_over_24h': Order.objects.filter(status='delivered', delivered_at__lt=now - timedelta(hours=24)).count(),
         }
         return Response(AdminOverviewSerializer(data).data)
 
@@ -154,7 +156,7 @@ class AdminPayoutListView(APIView):
 
     @extend_schema(responses=PayoutLineSerializer(many=True))
     def get(self, request):
-        return Response(PayoutLineSerializer(fulfilment.payouts_due(), many=True).data)
+        return Response(PayoutLineSerializer(fulfilment.payout_rows(), many=True).data)
 
 
 class AdminPayoutRecordView(APIView):

@@ -7,6 +7,7 @@ Layout of `api/`:
 - `permissions.py`: role permissions (`IsFarmer`, `IsBuyer`, `IsDriver`, `IsAdmin`) and `IsProductOwnerOrAdmin`
 - `fulfilment.py`: after payment: delivery trips, fulfilment steps (logged as `OrderEvent`), farmer payouts (4-hour promise) and buyer refunds
 - `admin_views.py`: the admin operations endpoints (`/api/admin/overview/`, trips, payouts, refunds, user deactivate, agent links)
+- `delivery.py` + `delivery_views.py`: driver trips and stops (collect/deliver with photos), buyer confirmation and problem reports, the per-delivery chat, and the admin problems queue (Module 9)
 - `pricing.py`: **the only place prices and fees are calculated** (`listed_price`, `price_order`)
 - `schema.py`: documentation-only serializers for hand-written `APIView`s (OpenAPI)
 - `tests/`: one file per area (`test_products.py`, `test_orders.py`…)

@@ -23,6 +23,18 @@ from .admin_views import (
     AdminTripOrdersView,
     AdminUserActiveView,
 )
+from .delivery_views import (
+    AdminProblemDecideView,
+    AdminProblemListView,
+    BuyerAwaitingConfirmationView,
+    BuyerConfirmView,
+    BuyerProblemView,
+    DeliveryChatView,
+    DriverCollectView,
+    DriverDeliverView,
+    DriverStopView,
+    DriverTripsView,
+)
 from .checkout_views import CheckoutViewSet, DeliveryAddressViewSet, MpesaCallbackView, PaymentDetailView, QuoteView
 from .views import (
     RegisterView,
@@ -95,7 +107,19 @@ urlpatterns = [
     path('admin/refunds/<int:pk>/record/', AdminRefundRecordView.as_view(), name='admin_refund_record'),
     path('admin/users/<uuid:uid>/active/', AdminUserActiveView.as_view(), name='admin_user_active'),
 
-    # Driver endpoints
+    # Module 9: driver trips, buyer confirmation, problems, delivery chat
+    path('driver/trips/', DriverTripsView.as_view(), name='driver_trips'),
+    path('driver/orders/<int:pk>/', DriverStopView.as_view(), name='driver_stop'),
+    path('driver/orders/<int:pk>/collect/', DriverCollectView.as_view(), name='driver_collect'),
+    path('driver/orders/<int:pk>/deliver/', DriverDeliverView.as_view(), name='driver_deliver'),
+    path('orders/awaiting-confirmation/', BuyerAwaitingConfirmationView.as_view(), name='orders_awaiting_confirmation'),
+    path('orders/<int:pk>/confirm/', BuyerConfirmView.as_view(), name='order_confirm'),
+    path('orders/<int:pk>/problems/', BuyerProblemView.as_view(), name='order_problem'),
+    path('orders/<int:pk>/messages/', DeliveryChatView.as_view(), name='order_messages'),
+    path('admin/problems/', AdminProblemListView.as_view(), name='admin_problems'),
+    path('admin/problems/<int:pk>/decide/', AdminProblemDecideView.as_view(), name='admin_problem_decide'),
+
+    # Driver endpoints (legacy single-order flow)
     path('driver/orders/', DriverOrderView.as_view(), name='driver_orders'),
     path('driver/update_status/', DriverUpdateStatusView.as_view(), name='driver_update_status'),
 

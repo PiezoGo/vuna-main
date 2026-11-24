@@ -2,11 +2,14 @@
 After payment: delivery trips, fulfilment steps, farmer payouts and buyer refunds
 (PRD sections 6.7, 6.8 and 7.2–7.5). Used by the admin dashboard now and the driver app later.
 """
+from decimal import Decimal
+
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from .models import Order, OrderEvent, Trip, User
+from .models import Order, OrderEvent, Problem, Trip, User
 
 PAYOUT_PROMISE_HOURS = 4
 
@@ -150,20 +153,50 @@ def payouts_due():
     ).select_related('farmer', 'product').order_by('collected_at')
 
 
+def payout_rows() -> list[Order]:
+    """
+    Payouts due, oldest first, each with `deduction` (farmer-fault refunds taken off it, oldest first,
+    never more than the payout), `deduction_problems` and `on_hold` (an open problem on the line).
+    """
+    lines = list(payouts_due().prefetch_related('problems'))
+    owed: dict = {}
+    for problem in Problem.objects.filter(
+        fault='farmer', status='refunded', farmer_deduction__gt=0, deducted_on__isnull=True,
+    ).select_related('order').order_by('decided_at', 'id'):
+        owed.setdefault(problem.order.farmer_id, []).append(problem)
+    for line in lines:
+        earnings = line.farmer_earnings or Decimal('0')
+        taken, used = Decimal('0'), []
+        for problem in list(owed.get(line.farmer_id, [])):
+            if taken + problem.farmer_deduction <= earnings:
+                taken += problem.farmer_deduction
+                used.append(problem)
+                owed[line.farmer_id].remove(problem)
+        line.deduction, line.deduction_problems = taken, used
+        line.on_hold = any(p.status == 'open' for p in line.problems.all())
+    return lines
+
+
 def refunds_due():
-    return Order.objects.filter(refunded=True, refunded_at__isnull=True).select_related('buyer', 'product').order_by('created_at')
+    return Order.objects.filter(
+        Q(refunded=True) | Q(refund_amount__isnull=False), refunded_at__isnull=True,
+    ).select_related('buyer', 'product').order_by('created_at')
 
 
 @transaction.atomic
 def record_payout(*, actor: User, order: Order, reference: str) -> Order:
     order = Order.objects.select_for_update().get(pk=order.pk)
-    if not payouts_due().filter(pk=order.pk).exists():
+    line = next((row for row in payout_rows() if row.pk == order.pk), None)
+    if line is None:
         raise ValidationError({'error': 'This order has no payout due (not collected yet, refunded, or already paid out).'})
     order.farmer_paid = True
     order.payout_reference = reference.strip().upper()
     order.paid_out_at = timezone.now()
-    order.save(update_fields=['farmer_paid', 'payout_reference', 'paid_out_at'])
-    log(order, 'paid_out', actor, f'Payout {order.payout_reference}')
+    order.payout_deduction = line.deduction
+    order.save(update_fields=['farmer_paid', 'payout_reference', 'paid_out_at', 'payout_deduction'])
+    Problem.objects.filter(pk__in=[p.pk for p in line.deduction_problems]).update(deducted_on=order)
+    note = f' less KSh {line.deduction} for refunds' if line.deduction else ''
+    log(order, 'paid_out', actor, f'Payout {order.payout_reference}{note}')
     return order
 
 

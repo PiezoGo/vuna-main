@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from .models import ChatMessage, Checkout, Cooperative, DeliveryAddress, MpesaPayment, Order, Product, Trip, User
+from .models import ChatMessage, Checkout, Cooperative, DeliveryAddress, MpesaPayment, Order, Problem, Product, Trip, User
 from .phone import normalize_ke_phone
 
 
@@ -162,7 +162,17 @@ class ProductSerializer(serializers.ModelSerializer):
         return data
 
 
+class ProblemSummarySerializer(serializers.ModelSerializer):
+    reason_label = serializers.CharField(source='get_reason_display', read_only=True)
+
+    class Meta:
+        model = Problem
+        fields = ['id', 'reason', 'reason_label', 'description', 'photo', 'status', 'refund_amount', 'admin_note', 'created_at']
+        read_only_fields = fields
+
+
 class OrderSerializer(serializers.ModelSerializer):
+    problem = serializers.SerializerMethodField()
     product_title = serializers.ReadOnlyField(source='product.title')
     product_unit = serializers.ReadOnlyField(source='product.unit')
     product_base_price = serializers.ReadOnlyField(source='product.base_price_per_unit')
@@ -195,13 +205,20 @@ class OrderSerializer(serializers.ModelSerializer):
             'checkout', 'is_paid', 'refunded', 'decided_at', 'answer_deadline',
             'delivery_date', 'delivery_area', 'product_min_order_quantity',
             'trip', 'collected_at', 'delivered_at', 'paid_out_at', 'payout_reference', 'refunded_at',
+            'pickup_photo', 'delivery_photo', 'confirmed_at', 'refund_amount', 'payout_deduction', 'problem',
         ]
         read_only_fields = [
             'buyer', 'farmer', 'driver', 'total_price', 'logistics_fee', 'platform_fee',
             'farmer_earnings', 'status', 'mock_payment_id', 'farmer_paid', 'created_at',
             'checkout', 'is_paid', 'refunded', 'decided_at',
             'trip', 'collected_at', 'delivered_at', 'paid_out_at', 'payout_reference', 'refunded_at',
+            'pickup_photo', 'delivery_photo', 'confirmed_at', 'refund_amount', 'payout_deduction',
         ]
+
+    @extend_schema_field(ProblemSummarySerializer(allow_null=True))
+    def get_problem(self, obj):
+        problem = obj.problems.order_by('-created_at').first()
+        return ProblemSummarySerializer(problem).data if problem else None
 
     def validate_quantity(self, value):
         if value < 1:
@@ -485,7 +502,7 @@ class TripStopSerializer(serializers.ModelSerializer):
             'id', 'stop_order', 'status', 'quantity', 'unit', 'product_title',
             'farmer_name', 'farmer_phone', 'farmer_city', 'farmer_market',
             'buyer_name', 'contact_name', 'contact_phone', 'area', 'details', 'landmark',
-            'collected_at', 'delivered_at',
+            'collected_at', 'delivered_at', 'pickup_photo', 'pickup_condition', 'delivery_photo',
         ]
         read_only_fields = fields
 
@@ -545,9 +562,22 @@ class PayoutLineSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             'id', 'product_title', 'quantity', 'unit', 'farmer_name', 'farmer_phone', 'farmer_earnings',
-            'status', 'collected_at', 'due_by', 'minutes_left',
+            'status', 'collected_at', 'due_by', 'minutes_left', 'deduction', 'amount_to_send', 'on_hold',
         ]
         read_only_fields = fields
+
+    deduction = serializers.SerializerMethodField(help_text="Farmer-fault refunds taken off this payout")
+    amount_to_send = serializers.SerializerMethodField()
+    on_hold = serializers.SerializerMethodField(help_text='The buyer reported a problem on this line')
+
+    def get_deduction(self, obj) -> Decimal:
+        return getattr(obj, 'deduction', Decimal('0.00'))
+
+    def get_amount_to_send(self, obj) -> Decimal:
+        return (obj.farmer_earnings or Decimal('0')) - getattr(obj, 'deduction', Decimal('0'))
+
+    def get_on_hold(self, obj) -> bool:
+        return getattr(obj, 'on_hold', False)
 
     def _due(self, obj):
         from datetime import timedelta
@@ -570,11 +600,22 @@ class RefundLineSerializer(serializers.ModelSerializer):
     buyer_name = serializers.ReadOnlyField(source='buyer.full_name')
     buyer_phone = serializers.ReadOnlyField(source='buyer.phone_number')
     payment_reference = serializers.ReadOnlyField(source='mock_payment_id')
+    amount = serializers.SerializerMethodField(help_text='What to send back: the decided refund, or the whole line')
+    reason = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
-        fields = ['id', 'product_title', 'quantity', 'buyer_name', 'buyer_phone', 'total_price', 'status', 'payment_reference', 'created_at']
+        fields = [
+            'id', 'product_title', 'quantity', 'buyer_name', 'buyer_phone', 'total_price', 'amount', 'reason',
+            'status', 'payment_reference', 'created_at',
+        ]
         read_only_fields = fields
+
+    def get_amount(self, obj) -> Decimal:
+        return obj.refund_amount if obj.refund_amount is not None else obj.total_price
+
+    def get_reason(self, obj) -> str:
+        return 'Problem reported after delivery' if obj.refund_amount is not None else f'Line {obj.get_status_display().lower()}'
 
 
 class AdminOverviewSerializer(serializers.Serializer):
@@ -588,6 +629,8 @@ class AdminOverviewSerializer(serializers.Serializer):
     pending_farmers = serializers.IntegerField()
     week_gmv = serializers.DecimalField(max_digits=14, decimal_places=2)
     week_orders = serializers.IntegerField()
+    problems_open = serializers.IntegerField()
+    unconfirmed_over_24h = serializers.IntegerField()
 
 
 class AgentLinkSerializer(serializers.Serializer):
@@ -596,3 +639,73 @@ class AgentLinkSerializer(serializers.Serializer):
 
 class UserActiveSerializer(serializers.Serializer):
     active = serializers.BooleanField()
+
+
+class CollectSerializer(serializers.Serializer):
+    photo = serializers.FileField()
+    condition = serializers.ChoiceField(choices=['good', 'issue'])
+    note = serializers.CharField(required=False, allow_blank=True, max_length=255)
+
+
+class DeliverSerializer(serializers.Serializer):
+    photo = serializers.FileField()
+
+
+class ProblemCreateSerializer(serializers.Serializer):
+    reason = serializers.ChoiceField(choices=[c[0] for c in Problem.REASON_CHOICES])
+    description = serializers.CharField(min_length=5, max_length=1000)
+    photo = serializers.FileField()
+
+
+class ProblemSerializer(serializers.ModelSerializer):
+    """A problem report as admins see it, with the line's amounts."""
+    reason_label = serializers.CharField(source='get_reason_display', read_only=True)
+    buyer_name = serializers.ReadOnlyField(source='buyer.full_name')
+    buyer_phone = serializers.ReadOnlyField(source='buyer.phone_number')
+    farmer_name = serializers.ReadOnlyField(source='order.farmer.full_name')
+    product_title = serializers.ReadOnlyField(source='order.product.title')
+    quantity = serializers.ReadOnlyField(source='order.quantity')
+    unit = serializers.ReadOnlyField(source='order.product.unit')
+    total_price = serializers.DecimalField(source='order.total_price', max_digits=12, decimal_places=2, read_only=True)
+    farmer_earnings = serializers.DecimalField(source='order.farmer_earnings', max_digits=12, decimal_places=2, read_only=True)
+    farmer_paid = serializers.ReadOnlyField(source='order.farmer_paid')
+    delivery_photo = serializers.ReadOnlyField(source='order.delivery_photo')
+    pickup_photo = serializers.ReadOnlyField(source='order.pickup_photo')
+    decided_by_name = serializers.CharField(source='decided_by.full_name', read_only=True, default=None)
+
+    class Meta:
+        model = Problem
+        fields = [
+            'id', 'order', 'reason', 'reason_label', 'description', 'photo', 'status', 'fault',
+            'refund_amount', 'farmer_deduction', 'admin_note', 'decided_by_name', 'decided_at', 'created_at',
+            'buyer_name', 'buyer_phone', 'farmer_name', 'product_title', 'quantity', 'unit',
+            'total_price', 'farmer_earnings', 'farmer_paid', 'delivery_photo', 'pickup_photo',
+        ]
+        read_only_fields = fields
+
+
+class ProblemDecisionSerializer(serializers.Serializer):
+    decision = serializers.ChoiceField(choices=['refund', 'reject'])
+    fault = serializers.ChoiceField(choices=['farmer', 'vuna'], required=False)
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True,
+                                      help_text='Refund amount; empty = the whole line')
+    note = serializers.CharField(max_length=255)
+
+    def validate(self, attrs):
+        if attrs['decision'] == 'refund' and not attrs.get('fault'):
+            raise serializers.ValidationError({'fault': ['Say whose fault it was.']})
+        return attrs
+
+
+class DeliveryMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.ReadOnlyField(source='sender.full_name')
+    sender_role = serializers.ReadOnlyField(source='sender.role')
+
+    class Meta:
+        model = ChatMessage
+        fields = ['id', 'sender', 'sender_name', 'sender_role', 'message', 'timestamp', 'is_read']
+        read_only_fields = fields
+
+
+class DeliveryMessageCreateSerializer(serializers.Serializer):
+    message = serializers.CharField(max_length=1000)

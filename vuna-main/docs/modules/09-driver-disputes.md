@@ -1,6 +1,6 @@
 # Module 9: Driver app, delivery confirmation and problem reports
 
-Status: **plan, questions answered Nov 24, waiting for "go"**. Branch `refine`. Follows Module 8 (trips). PRD section 7.2 (order states), quality rules in `docs/business-rules.md` section 3.
+Status: **approved Nov 24, building**. Branch `refine`. Follows Module 8 (trips). PRD section 7.2 (order states), quality rules in `docs/business-rules.md` section 3.
 
 ## Goal
 Drivers run their trip from a phone: see today's stops in order, mark each farm pickup collected (photo + condition check) and each drop-off delivered (photo). When the driver marks a drop-off delivered, the buyer is asked to confirm receipt the next time they open the site; nothing completes by itself. If something is wrong, the buyer reports a problem with a photo instead of confirming, and an admin decides the refund. Drivers can chat in the app with the buyer for each of their drop-offs. Admins no longer need to mark steps by hand (they still can).

@@ -238,6 +238,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/problems/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["admin_problems_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/problems/{id}/decide/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["admin_problems_decide_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/refunds/": {
         parameters: {
             query?: never;
@@ -534,6 +566,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/driver/orders/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["driver_stop"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/driver/orders/{id}/collect/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["driver_orders_collect_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/driver/orders/{id}/deliver/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["driver_orders_deliver_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/driver/trips/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The driver's own trips: today and upcoming first, then the last 14 days. */
+        get: operations["driver_trips_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/driver/update_status/": {
         parameters: {
             query?: never;
@@ -741,6 +838,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/orders/{id}/confirm/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["orders_confirm_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/orders/{id}/decline/": {
         parameters: {
             query?: never;
@@ -752,6 +865,57 @@ export interface paths {
         put?: never;
         /** @description Farmer declines an order line; stock returns and a paid line is refunded. */
         post: operations["orders_decline_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orders/{id}/messages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Messages about one delivery, between the trip's driver and the buyer only. */
+        get: operations["orders_messages_list"];
+        put?: never;
+        /** @description Messages about one delivery, between the trip's driver and the buyer only. */
+        post: operations["orders_messages_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orders/{id}/problems/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["orders_problems_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/orders/awaiting-confirmation/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Delivered lines the buyer hasn't confirmed: shown as a prompt after sign-in. */
+        get: operations["orders_awaiting_confirmation_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -924,6 +1088,8 @@ export interface components {
             /** Format: decimal */
             week_gmv: string;
             week_orders: number;
+            problems_open: number;
+            unconfirmed_over_24h: number;
         };
         AgentFarmer: {
             /** Format: uuid */
@@ -1024,10 +1190,32 @@ export interface components {
             delivery_date: string;
             payment_choice: components["schemas"]["PaymentChoiceEnum"];
         };
+        CollectRequest: {
+            /** Format: binary */
+            photo: string;
+            condition: components["schemas"]["ConditionEnum"];
+            note?: string;
+        };
+        /**
+         * @description * `good` - good
+         *     * `issue` - issue
+         * @enum {string}
+         */
+        ConditionEnum: "good" | "issue";
         Cooperative: {
             readonly id: number;
             name: string;
             county?: string;
+        };
+        /**
+         * @description * `refund` - refund
+         *     * `reject` - reject
+         * @enum {string}
+         */
+        DecisionEnum: "refund" | "reject";
+        DeliverRequest: {
+            /** Format: binary */
+            photo: string;
         };
         DeliveryAddress: {
             readonly id: number;
@@ -1053,6 +1241,20 @@ export interface components {
             /** @description Building, street, gate */
             details: string;
             landmark?: string;
+        };
+        DeliveryMessage: {
+            readonly id: number;
+            /** Format: uuid */
+            readonly sender: string;
+            readonly sender_name: string;
+            readonly sender_role: components["schemas"]["UserRoleEnum"];
+            readonly message: string;
+            /** Format: date-time */
+            readonly timestamp: string;
+            readonly is_read: boolean;
+        };
+        DeliveryMessageCreateRequest: {
+            message: string;
         };
         DetailResponse: {
             detail: string;
@@ -1224,6 +1426,17 @@ export interface components {
             readonly payout_reference: string;
             /** Format: date-time */
             readonly refunded_at: string | null;
+            /** Format: uri */
+            readonly pickup_photo: string;
+            /** Format: uri */
+            readonly delivery_photo: string;
+            /** Format: date-time */
+            readonly confirmed_at: string | null;
+            /** Format: decimal */
+            readonly refund_amount: string | null;
+            /** Format: decimal */
+            readonly payout_deduction: string;
+            readonly problem: components["schemas"]["ProblemSummary"] | null;
         };
         OrderActionResponse: {
             detail: string;
@@ -1331,6 +1544,126 @@ export interface components {
             readonly due_by: string | null;
             /** @description Minutes until the 4-hour promise; negative once overdue. */
             readonly minutes_left: number | null;
+            /**
+             * Format: double
+             * @description Farmer-fault refunds taken off this payout
+             */
+            readonly deduction: number;
+            /** Format: double */
+            readonly amount_to_send: number;
+            /** @description The buyer reported a problem on this line */
+            readonly on_hold: boolean;
+        };
+        /**
+         * @description * `good` - Good
+         *     * `issue` - Issue
+         * @enum {string}
+         */
+        PickupConditionEnum: "good" | "issue";
+        /** @description A problem report as admins see it, with the line's amounts. */
+        Problem: {
+            readonly id: number;
+            readonly order: number;
+            readonly reason: components["schemas"]["ProblemReasonEnum"];
+            readonly reason_label: string;
+            readonly description: string;
+            /** Format: uri */
+            readonly photo: string;
+            readonly status: components["schemas"]["ProblemStatusEnum"];
+            readonly fault: components["schemas"]["ProblemFaultEnum"];
+            /** Format: decimal */
+            readonly refund_amount: string | null;
+            /** Format: decimal */
+            readonly farmer_deduction: string;
+            readonly admin_note: string;
+            readonly decided_by_name: string;
+            /** Format: date-time */
+            readonly decided_at: string | null;
+            /** Format: date-time */
+            readonly created_at: string;
+            readonly buyer_name: string;
+            readonly buyer_phone: string;
+            readonly farmer_name: string;
+            readonly product_title: string;
+            /** Format: int64 */
+            readonly quantity: number;
+            readonly unit: components["schemas"]["ProductUnitEnum"];
+            /** Format: decimal */
+            readonly total_price: string;
+            /** Format: decimal */
+            readonly farmer_earnings: string;
+            readonly farmer_paid: boolean;
+            /** Format: uri */
+            readonly delivery_photo: string;
+            /** Format: uri */
+            readonly pickup_photo: string;
+        };
+        /**
+         * @description * `quality` - quality
+         *     * `quantity` - quantity
+         *     * `wrong_item` - wrong_item
+         *     * `damaged` - damaged
+         *     * `other` - other
+         * @enum {string}
+         */
+        ProblemCreateReasonEnum: "quality" | "quantity" | "wrong_item" | "damaged" | "other";
+        ProblemCreateRequest: {
+            reason: components["schemas"]["ProblemCreateReasonEnum"];
+            description: string;
+            /** Format: binary */
+            photo: string;
+        };
+        /**
+         * @description * `farmer` - farmer
+         *     * `vuna` - vuna
+         * @enum {string}
+         */
+        ProblemDecisionFaultEnum: "farmer" | "vuna";
+        ProblemDecisionRequest: {
+            decision: components["schemas"]["DecisionEnum"];
+            fault?: components["schemas"]["ProblemDecisionFaultEnum"];
+            /**
+             * Format: decimal
+             * @description Refund amount; empty = the whole line
+             */
+            amount?: string | null;
+            note: string;
+        };
+        /**
+         * @description * `farmer` - Farmer
+         *     * `vuna` - VUNA
+         * @enum {string}
+         */
+        ProblemFaultEnum: "farmer" | "vuna";
+        /**
+         * @description * `quality` - Poor quality
+         *     * `quantity` - Wrong quantity
+         *     * `wrong_item` - Wrong item
+         *     * `damaged` - Damaged
+         *     * `other` - Other
+         * @enum {string}
+         */
+        ProblemReasonEnum: "quality" | "quantity" | "wrong_item" | "damaged" | "other";
+        /**
+         * @description * `open` - Open
+         *     * `refunded` - Refunded
+         *     * `rejected` - Rejected
+         * @enum {string}
+         */
+        ProblemStatusEnum: "open" | "refunded" | "rejected";
+        ProblemSummary: {
+            readonly id: number;
+            readonly reason: components["schemas"]["ProblemReasonEnum"];
+            readonly reason_label: string;
+            readonly description: string;
+            /** Format: uri */
+            readonly photo: string;
+            readonly status: components["schemas"]["ProblemStatusEnum"];
+            /** Format: decimal */
+            readonly refund_amount: string | null;
+            readonly admin_note: string;
+            /** Format: date-time */
+            readonly created_at: string;
         };
         Product: {
             readonly id: number;
@@ -1471,6 +1804,12 @@ export interface components {
             readonly buyer_phone: string;
             /** Format: decimal */
             readonly total_price: string;
+            /**
+             * Format: double
+             * @description What to send back: the decided refund, or the whole line
+             */
+            readonly amount: number;
+            readonly reason: string;
             readonly status: components["schemas"]["OrderStatusEnum"];
             readonly payment_reference: string | null;
             /** Format: date-time */
@@ -1578,6 +1917,11 @@ export interface components {
             readonly collected_at: string | null;
             /** Format: date-time */
             readonly delivered_at: string | null;
+            /** Format: uri */
+            readonly pickup_photo: string;
+            readonly pickup_condition: components["schemas"]["PickupConditionEnum"];
+            /** Format: uri */
+            readonly delivery_photo: string;
         };
         User: {
             /** Format: uuid */
@@ -2201,6 +2545,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    admin_problems_list: {
+        parameters: {
+            query?: {
+                status?: "all" | "open" | "refunded" | "rejected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"][];
+                };
+            };
+        };
+    };
+    admin_problems_decide_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProblemDecisionRequest"];
+                "multipart/form-data": components["schemas"]["ProblemDecisionRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ProblemDecisionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Problem"];
                 };
             };
             400: {
@@ -2849,6 +3257,136 @@ export interface operations {
             };
         };
     };
+    driver_stop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripStop"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    driver_orders_collect_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["CollectRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripStop"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    driver_orders_deliver_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["DeliverRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripStop"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    driver_trips_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"][];
+                };
+            };
+        };
+    };
     driver_update_status_create: {
         parameters: {
             query?: never;
@@ -3268,6 +3806,43 @@ export interface operations {
             };
         };
     };
+    orders_confirm_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     orders_decline_create: {
         parameters: {
             query?: never;
@@ -3302,6 +3877,138 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    orders_messages_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryMessage"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    orders_messages_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeliveryMessageCreateRequest"];
+                "multipart/form-data": components["schemas"]["DeliveryMessageCreateRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["DeliveryMessageCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryMessage"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    orders_problems_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ProblemCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    orders_awaiting_confirmation_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"][];
                 };
             };
         };
