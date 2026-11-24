@@ -4,6 +4,7 @@ import { Logo } from "@/components/brand/logo";
 import { HeaderAuth } from "@/components/layout/header-auth";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { NavLinks } from "@/components/layout/nav-links";
+import { ConfirmDeliveriesBanner } from "@/components/order/confirm-deliveries-banner";
 import { route, routes } from "@/config/routes";
 
 /** Public site header. The session part loads on the client, so public pages stay static. */
@@ -29,6 +30,7 @@ export function SiteHeader() {
 
         <MobileNav className="ml-auto md:hidden" />
       </div>
+      <ConfirmDeliveriesBanner />
     </header>
   );
 }
