@@ -37,6 +37,7 @@ The backend calculates all of this (`backend/api/pricing.py`). The website and a
 - A buyer can fill a **cart with products from several farmers and pay once**. Behind the scenes that becomes one order per product line, so each line gets its own driver flow.
 - Stock is reduced when the order is placed.
 - An admin assigns one driver to a paid order. The driver marks it collected → in transit → delivered. An admin marks it completed, which also marks the farmer as paid.
+  *Updated 2026-11-24 (Module 8):* admins put paid lines on a daily **trip** with one driver. Until the driver app, admins mark lines collected / delivered / completed by hand (each step recorded with who and when). Farmer payouts and buyer refunds are recorded separately by an admin with the M-Pesa reference; in the new dashboard, completing a line no longer marks the farmer paid (the legacy site still does). Users are deactivated, never deleted.
 
 ### Payment
 - Mock M-Pesa for now. The real one will be Daraja STK Push (a prompt on the buyer's phone), built when credentials are available.

@@ -52,3 +52,22 @@ Driver app (Module 9: drivers mark pickup/drop-off themselves), buyer "report a 
 - [ ] Link a farmer to an agent; the agent sees them
 - [ ] Non-admins get no access to any `/admin` page or endpoint
 - [ ] Works at 375 px wide (ops staff on phones)
+
+## Decisions (Nov 24)
+All four open questions use the recommended answers: admins mark collected / delivered / completed by hand (each step is an `OrderEvent` with who and when); payouts and refunds are recorded by hand with the M-Pesa reference; several trips per driver per day are allowed (the new-trip page warns); users are deactivated, never deleted.
+
+## Done
+**Backend** (`api/fulfilment.py`, `api/admin_views.py`, migration `0011_trips_payouts_events`)
+- `Trip` and `OrderEvent` models; order fields `trip`, `stop_order`, `collected_at`, `delivered_at`, `payout_reference`, `paid_out_at`, `refund_reference`, `refunded_at`.
+- `GET /api/admin/overview/`; `GET /api/admin/orders/` now filters by `status`, `date`, `farmer`, `buyer`, `unscheduled`, `q`; `POST /api/admin/orders/{id}/step/`.
+- Trips: `GET/POST /api/admin/trips/`, `GET /api/admin/trips/{id}/`, `PUT …/orders/` (add, remove, reorder), `POST …/cancel/` (lines go back to paid; refused once anything is collected).
+- `GET /api/admin/payouts/` (oldest first, `due_by`, `minutes_left`) + `POST …/{id}/record/`; `GET /api/admin/refunds/` + `POST …/{id}/record/`.
+- `POST /api/admin/users/{uid}/active/` (deactivate signs them out), `POST /api/admin/farmers/{uid}/agent/`; `GET /api/admin/users/` searches by `q` and `approval`.
+- Tests: `api/tests/test_admin_ops.py` (trip rules, cancel, steps, payouts, refunds, overview, filters, deactivate, agent link, 403 for every other role).
+
+**Web** (`components/admin/`, `features/admin/`, `app/(dashboard)/admin/`)
+- `/admin` (today), `/admin/orders`, `/admin/trips`, `/admin/trips/new`, `/admin/trips/[id]`, `/admin/payouts`, `/admin/refunds`, `/admin/drivers`, `/admin/users`. `/admin/farmers` stays.
+
+**Deploy:** run `python manage.py migrate` on Render (migration 0011). No new environment variables.
+
+**Not done here:** the 375 px and click-through checks in the test checklist above need a manual pass with real accounts.
